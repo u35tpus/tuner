@@ -159,6 +159,28 @@ def parse_yaml(path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def parse_sequences_from_config(sequences_cfg):
+    """Parse sequences from config and return list of exercises.
+    
+    Each sequence is a comma-separated string of note names.
+    Returns list of ('sequence', tuple_of_midi_notes) exercises.
+    """
+    exercises = []
+    if not sequences_cfg:
+        return exercises
+    
+    for seq_str in sequences_cfg:
+        # Split by comma and strip whitespace
+        note_names = [n.strip() for n in seq_str.split(',')]
+        try:
+            notes = tuple(note_name_to_midi(n) for n in note_names)
+            exercises.append(('sequence', notes))
+        except Exception as e:
+            print(f'Warning: Could not parse sequence "{seq_str}": {e}')
+    
+    return exercises
+
+
 # ---------------------- Exercise generation ---------------------------
 
 def generate_intervals(pool_notes, ascending=True, descending=True, max_interval=12, include_m3=False):
@@ -339,6 +361,10 @@ def main():
                     notes = ex[1]
                     names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
                     f.write(f"{i:04d}: TRIAD     {names}\n")
+                elif ex[0] == 'sequence':
+                    notes = ex[1]
+                    names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
+                    f.write(f"{i:04d}: SEQUENCE  {names}\n")
                 else:
                     f.write(f"{i:04d}: UNKNOWN   {ex}\n")
         print(f'Wrote text log to {path}')
@@ -391,32 +417,17 @@ def main():
     lowest = note_name_to_midi(vocal.get('lowest_note', 'A3'))
     highest = note_name_to_midi(vocal.get('highest_note', 'A4'))
 
-    scale_cfg = cfg.get('scale', {})
-    if 'notes' in scale_cfg and scale_cfg['notes']:
-        custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
-        pool = [n for n in custom_notes if lowest <= n <= highest]
-        scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
-    else:
-        root = note_name_to_midi(scale_cfg.get('root', 'A3'))
-        stype = scale_cfg.get('type', 'natural_minor')
-        pool = expand_scale_over_range(root, stype, lowest, highest)
-        scale_single_octave = build_scale_notes(root, stype)
-
-    content = cfg.get('content', {})
-    intervals_cfg = content.get('intervals', {})
-    triads_cfg = content.get('triads', {})
-
-    max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
-    max_interval = 12
-    include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
-    ascending = intervals_cfg.get('ascending', True)
-    descending = intervals_cfg.get('descending', True)
-
     repetitions = cfg.get('repetitions_per_exercise', 10)
     seed = cfg.get('random_seed', None)
     if seed is not None:
         random.seed(seed)
 
+    # Check if sequences are specified in config
+    sequences_cfg = cfg.get('sequences', None)
+    
+    # Set default scale_name that will be used in output filename
+    scale_name = 'session'
+    
     # If --from-text is provided, load exercises from text file instead of generating
     if args.from_text:
         exercises = parse_text_log(args.from_text)
@@ -424,8 +435,38 @@ def main():
             print(f'No exercises loaded from {args.from_text}. Exiting.')
             return
         print(f'Loaded {len(exercises)} exercises from {args.from_text}')
+    elif sequences_cfg:
+        # Use explicit note sequences if provided
+        exercises = parse_sequences_from_config(sequences_cfg)
+        if not exercises:
+            print('No valid sequences found in config. Exiting.')
+            return
+        print(f'Loaded {len(exercises)} sequences from config')
     else:
-        # Normal mode: generate exercises from config
+        # Normal mode: generate exercises from scale and content
+        scale_cfg = cfg.get('scale', {})
+        scale_name = scale_cfg.get('name', 'scale')
+        if 'notes' in scale_cfg and scale_cfg['notes']:
+            custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
+            pool = [n for n in custom_notes if lowest <= n <= highest]
+            scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
+        else:
+            root = note_name_to_midi(scale_cfg.get('root', 'A3'))
+            stype = scale_cfg.get('type', 'natural_minor')
+            pool = expand_scale_over_range(root, stype, lowest, highest)
+            scale_single_octave = build_scale_notes(root, stype)
+
+        content = cfg.get('content', {})
+        intervals_cfg = content.get('intervals', {})
+        triads_cfg = content.get('triads', {})
+
+        max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
+        max_interval = 12
+        include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
+        ascending = intervals_cfg.get('ascending', True)
+        descending = intervals_cfg.get('descending', True)
+
+        # Generate exercises from config
         exercises = []
         exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
         if triads_cfg.get('enabled', True):
@@ -516,7 +557,6 @@ def main():
         print()
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    scale_name = scale_cfg.get('name', 'scale')
     out_name = args.output or fname_template.format(scale=scale_name.replace(' ', '_'), date=timestamp)
 
     tmpdir = tempfile.mkdtemp(prefix='intonation_')
@@ -566,6 +606,14 @@ def main():
                     # rest between exercises
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
                 elif ex[0] == 'triad':
+                    notes = [int(n) for n in ex[1]]
+                    # Play notes consecutively with no pause between them
+                    for i, n in enumerate(notes):
+                        track.append(Message('note_on', note=n, velocity=velocity, time=0))
+                        track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
+                    # rest between exercises
+                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+                elif ex[0] == 'sequence':
                     notes = [int(n) for n in ex[1]]
                     # Play notes consecutively with no pause between them
                     for i, n in enumerate(notes):
@@ -630,6 +678,29 @@ def main():
                         combined = normalize_int16(combined)
                         write_wav_mono(out_wav, combined, sr)
             elif typ == 'triad':
+                notes = list(ex[1])
+                midi_path = os.path.join(tmpdir, f'ex_{idx:04d}.mid')
+                mid = MidiFile()
+                track = MidiTrack()
+                mid.tracks.append(track)
+                tempo_bpm = cfg.get('timing', {}).get('intro_bpm', 120)
+                track.append(mido.MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
+                dur = cfg.get('timing', {}).get('note_duration', 1.8)
+                ticks = int(mid.ticks_per_beat * (dur * tempo_bpm / 60.0))
+                # Play notes consecutively with no pause between them
+                for i, n in enumerate(notes):
+                    track.append(Message('note_on', note=int(n), velocity=velocity, time=0))
+                    track.append(Message('note_off', note=int(n), velocity=0, time=ticks))
+                mid.save(midi_path)
+                rendered = False
+                if method == 'soundfont' and os.path.exists(sf2_path):
+                    try:
+                        rendered = render_midi_to_wav(midi_path, sf2_path, out_wav)
+                    except Exception:
+                        rendered = False
+                if not rendered:
+                    synth_simple_wav(notes, cfg.get('timing', {}).get('note_duration', 1.8), out_wav)
+            elif typ == 'sequence':
                 notes = list(ex[1])
                 midi_path = os.path.join(tmpdir, f'ex_{idx:04d}.mid')
                 mid = MidiFile()

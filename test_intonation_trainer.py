@@ -767,6 +767,73 @@ class TestRepetitionsPerExercise(unittest.TestCase):
         self.assertEqual(rep, 7, "Custom repetitions_per_exercise should be respected")
 
 
+class TestSequenceGeneration(unittest.TestCase):
+    """Test note sequence parsing and generation."""
+
+    def test_parse_sequences_basic(self):
+        """Test parsing basic note sequences."""
+        sequences_cfg = [
+            "D#3, A#2, C4",
+            "G3, C4",
+        ]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        
+        # First sequence: D#3 (51), A#2 (46), C4 (60)
+        self.assertEqual(exercises[0][0], 'sequence')
+        self.assertEqual(exercises[0][1], (51, 46, 60))
+        
+        # Second sequence: G3 (55), C4 (60)
+        self.assertEqual(exercises[1][0], 'sequence')
+        self.assertEqual(exercises[1][1], (55, 60))
+
+    def test_parse_sequences_single_note(self):
+        """Test parsing single-note sequences."""
+        sequences_cfg = ["C4", "D4", "E4"]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 3)
+        self.assertEqual(exercises[0][1], (60,))
+        self.assertEqual(exercises[1][1], (62,))
+        self.assertEqual(exercises[2][1], (64,))
+
+    def test_parse_sequences_with_accidentals(self):
+        """Test parsing sequences with sharps and flats."""
+        sequences_cfg = ["C#3, Db4", "F#2, Gb3"]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        # C#3 = 49, Db4 = 61
+        self.assertEqual(exercises[0][1], (49, 61))
+        # F#2 = 42, Gb3 = 54
+        self.assertEqual(exercises[1][1], (42, 54))
+
+    def test_parse_sequences_empty(self):
+        """Test parsing empty sequence list."""
+        exercises = trainer.parse_sequences_from_config(None)
+        self.assertEqual(len(exercises), 0)
+        
+        exercises = trainer.parse_sequences_from_config([])
+        self.assertEqual(len(exercises), 0)
+
+    def test_parse_sequences_whitespace_handling(self):
+        """Test that whitespace is properly handled in sequences."""
+        sequences_cfg = [
+            "  D#3  ,  A#2  ,  C4  ",  # Extra spaces
+            "G3,C4",  # No spaces
+        ]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        # Both should parse correctly despite whitespace differences
+        self.assertEqual(exercises[0][1], (51, 46, 60))
+        self.assertEqual(exercises[1][1], (55, 60))
+
+    def test_sequence_type_in_exercises(self):
+        """Test that parsed sequences have type 'sequence'."""
+        sequences_cfg = ["C4, E4, G4"]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        for ex in exercises:
+            self.assertEqual(ex[0], 'sequence')
+            self.assertIsInstance(ex[1], tuple)
+
 
 if __name__ == '__main__':
     unittest.main()

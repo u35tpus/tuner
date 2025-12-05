@@ -1,0 +1,36 @@
+output:
+  filename: "Sequences_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+vocal_range:
+  lowest_note: A2
+  highest_note: C4
+
+# When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
+# Each sequence is a comma-separated list of note names.
+sequences:
+  - D#3, A#2, C4
+  - G3, C4
+  - G3, C4, A4, D3
+  - A#2, C4, F3
+  - G#2, C4, E3
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 4.0
+  intro_beats: 4
+  intro_bpm: 120
+
+# How many times each sequence should be repeated consecutively
+repetitions_per_exercise: 3
+random_seed: null
+
+# Session duration limit in seconds (default 600 = 10 minutes)
+max_duration: 600
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
