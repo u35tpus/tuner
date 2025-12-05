@@ -11,4 +11,4 @@ build/
 *.wav
 logs/
 drylog.txt
-.mid
+*.mid
