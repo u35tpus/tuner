@@ -187,6 +187,35 @@ class TestMIDIGeneration(unittest.TestCase):
             # Should have set_tempo + note_on/note_off pairs
             self.assertGreater(len(track), 4)
 
+
+class TestVocalRangeEnforcement(unittest.TestCase):
+    """Ensure generated exercises respect the provided vocal range."""
+
+    def test_generate_triads_respect_range(self):
+        """Triads generated with low/high parameters must not exceed those bounds."""
+        scale_notes = [60, 62, 64, 65, 67, 69, 71]
+        # pool contains a root at C4 which would normally produce notes above C4
+        pool = [60]
+        low = 57  # A3
+        high = 60  # C4
+
+        triads = trainer.generate_triads(scale_notes, pool, include_inversions=True, low=low, high=high)
+        # All generated triad notes must be within [low, high]
+        for t in triads:
+            notes = t[1]
+            for n in notes:
+                self.assertGreaterEqual(n, low)
+                self.assertLessEqual(n, high)
+
+    def test_generate_intervals_respect_range(self):
+        """Intervals generated from a pool should not contain notes outside the pool bounds."""
+        pool = [57, 58, 59, 60]
+        intervals = trainer.generate_intervals(pool, ascending=True, descending=True)
+        for it in intervals:
+            a, b = it[1], it[2]
+            self.assertIn(a, pool)
+            self.assertIn(b, pool)
+
     def test_midi_note_count(self):
         """Test that MIDI file contains correct number of note_on messages."""
         with tempfile.TemporaryDirectory() as tmpdir:
