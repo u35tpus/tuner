@@ -188,7 +188,12 @@ def generate_intervals(pool_notes, ascending=True, descending=True, max_interval
     return unique
 
 
-def generate_triads(scale_notes_single_octave_midi, pool_notes, include_inversions=True, triad_types=('major','minor','diminished')):
+def generate_triads(scale_notes_single_octave_midi, pool_notes, include_inversions=True, triad_types=('major','minor','diminished'), low=None, high=None):
+    """Generate triads from a pool of notes.
+
+    If `low` and/or `high` are provided, any generated triad (including inversions)
+    that contains notes outside the inclusive range [low, high] will be discarded.
+    """
     triads = []
     semitone_to_index = {n % 12: i for i, n in enumerate(scale_notes_single_octave_midi)}
     for root in pool_notes:
@@ -214,11 +219,29 @@ def generate_triads(scale_notes_single_octave_midi, pool_notes, include_inversio
             quality = 'diminished'
         else:
             quality = 'other'
+
+        def in_range(notes_tuple):
+            if low is None and high is None:
+                return True
+            for p in notes_tuple:
+                if low is not None and p < low:
+                    return False
+                if high is not None and p > high:
+                    return False
+            return True
+
         if quality in triad_types:
-            triads.append(('triad', tuple(tri)))
+            base_tri = tuple(tri)
+            if in_range(base_tri):
+                triads.append(('triad', base_tri))
             if include_inversions:
-                triads.append(('triad', tuple([tri[1], tri[2], tri[0]+12])))
-                triads.append(('triad', tuple([tri[2], tri[0]+12, tri[1]+12])))
+                inv1 = tuple([tri[1], tri[2], tri[0] + 12])
+                inv2 = tuple([tri[2], tri[0] + 12, tri[1] + 12])
+                if in_range(inv1):
+                    triads.append(('triad', inv1))
+                if in_range(inv2):
+                    triads.append(('triad', inv2))
+
     uniq = []
     seen = set()
     for t in triads:
@@ -407,7 +430,14 @@ def main():
         exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
         if triads_cfg.get('enabled', True):
             tri_types = triads_cfg.get('types', ['major','minor','diminished'])
-            triads = generate_triads(scale_single_octave, pool, include_inversions=triads_cfg.get('include_inversions', True), triad_types=tri_types)
+            triads = generate_triads(
+                scale_single_octave,
+                pool,
+                include_inversions=triads_cfg.get('include_inversions', True),
+                triad_types=tri_types,
+                low=lowest,
+                high=highest,
+            )
             exercises += triads
 
     random.shuffle(exercises)
