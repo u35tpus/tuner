@@ -1,0 +1,1 @@
+Always update README.md when making changes to intonation_trainer.py or config_template.yaml!

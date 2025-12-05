@@ -471,6 +471,65 @@ def main():
         shutil.rmtree(tmpdir)
         return
 
+    # Prepare sound config early (velocity used for MIDI creation)
+    sf_cfg = cfg.get('sound', {})
+    method = sf_cfg.get('method', 'soundfont')
+    sf2_path = sf_cfg.get('soundfont_path', 'piano/SalamanderGrandPiano.sf2')
+    velocity = sf_cfg.get('velocity', 90)
+
+    # Also build a combined MIDI file representing the whole session so the
+    # user can open it in a MIDI editor. This MIDI is written regardless
+    # of whether FluidSynth is used for audio rendering.
+    if final_list:
+        try:
+            session_mid = MidiFile()
+            track = MidiTrack()
+            session_mid.tracks.append(track)
+            tempo_bpm = cfg.get('timing', {}).get('intro_bpm', 120)
+            track.append(mido.MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
+            ticks_per_beat = session_mid.ticks_per_beat
+            # helper to convert seconds -> ticks (approx using bpm)
+            def secs_to_ticks(s):
+                return int(s * (ticks_per_beat * tempo_bpm / 60.0))
+
+            note_dur = cfg.get('timing', {}).get('note_duration', 1.8)
+            intra_interval_gap = 0.1  # 100 ms gap between two notes of an interval
+            rest_between = cfg.get('timing', {}).get('pause_between_reps', 1.0)
+
+            for ex in final_list:
+                if ex[0] == 'interval':
+                    a, b = int(ex[1]), int(ex[2])
+                    # note on A
+                    track.append(Message('note_on', note=a, velocity=velocity, time=0))
+                    # note off A after note_dur
+                    track.append(Message('note_off', note=a, velocity=0, time=secs_to_ticks(note_dur)))
+                    # small gap before second note
+                    track.append(Message('note_on', note=b, velocity=velocity, time=secs_to_ticks(intra_interval_gap)))
+                    track.append(Message('note_off', note=b, velocity=0, time=secs_to_ticks(note_dur)))
+                    # rest between exercises
+                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+                elif ex[0] == 'triad':
+                    notes = [int(n) for n in ex[1]]
+                    # start all notes together
+                    for n in notes:
+                        track.append(Message('note_on', note=n, velocity=velocity, time=0))
+                    # hold for duration, then note_off for first with time=dur, others time=0
+                    track.append(Message('note_off', note=notes[0], velocity=0, time=secs_to_ticks(note_dur)))
+                    for n in notes[1:]:
+                        track.append(Message('note_off', note=n, velocity=0, time=0))
+                    # rest between exercises
+                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+                else:
+                    # unknown entry: skip with a small rest
+                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+
+            base = os.path.splitext(out_name)[0]
+            session_midi_path = base + '.mid'
+            session_mid.save(session_midi_path)
+            print(f'Wrote session MIDI to {session_midi_path}')
+        except Exception as e:
+            print(f'Warning: failed to write session MIDI: {e}')
+
     try:
         sf_cfg = cfg.get('sound', {})
         method = sf_cfg.get('method', 'soundfont')
