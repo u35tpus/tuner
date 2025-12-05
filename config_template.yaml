@@ -34,6 +34,10 @@ timing:
 repetitions_per_exercise: 10
 random_seed: null
 
+# Session duration limit in seconds (default 600 = 10 minutes)
+# Can be overridden via CLI with --max-duration
+max_duration: 600
+
 sound:
   method: soundfont
   soundfont_path: "piano/SalamanderGrandPiano.sf2"

@@ -280,6 +280,7 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='Do not render audio; only write a text log of generated exercises')
     parser.add_argument('--verbose', action='store_true', help='Also write a text log of generated exercises alongside the audio output')
     parser.add_argument('--text-file', help='Explicit path for the text log (overrides default)')
+    parser.add_argument('--max-duration', type=int, default=600, help='Maximum session duration in seconds (default 600=10 min)')
     args = parser.parse_args()
 
     cfg = parse_yaml(args.config)
@@ -287,6 +288,16 @@ def main():
     fname_template = outcfg.get('filename', 'Intonation_{scale}_{date}.mp3')
     fmt = outcfg.get('format', 'mp3')
     normalize_lufs = outcfg.get('normalize_lufs', -16)
+    
+    # Get max_duration from config, then override with CLI if provided
+    config_max_duration = cfg.get('max_duration', 600)
+    # CLI args.max_duration has default=600; we use it only if different from default
+    # OR we can simplify: always prefer CLI if explicitly passed
+    # For simplicity: use config value, but CLI can override
+    if args.max_duration != 600:  # CLI was explicitly set
+        max_duration_seconds = args.max_duration
+    else:
+        max_duration_seconds = config_max_duration
 
     vocal = cfg.get('vocal_range', {})
     lowest = note_name_to_midi(vocal.get('lowest_note', 'A3'))
@@ -327,9 +338,36 @@ def main():
 
     random.shuffle(exercises)
     final_list = []
-    for ex in exercises:
-        for _ in range(repetitions):
-            final_list.append(ex)
+    # Calculate actual repetitions based on max_duration target
+    note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
+    pause_between_reps = cfg.get('timing', {}).get('pause_between_reps', 1.0)
+    # Each exercise takes ~note_duration + pause_between_reps seconds
+    time_per_exercise = note_duration + pause_between_reps
+    max_exercises = int(max_duration_seconds / time_per_exercise)
+    if max_exercises < 1:
+        max_exercises = 1
+    
+    # Build final list with enough exercises to fill (or approach) max_duration
+    final_list = []
+    if len(exercises) > 0:
+        # Try to fit as many repetitions as possible
+        actual_reps = max(1, max_exercises // len(exercises))
+        for ex in exercises:
+            for _ in range(actual_reps):
+                final_list.append(ex)
+                if len(final_list) >= max_exercises:
+                    break
+            if len(final_list) >= max_exercises:
+                break
+    
+    # Calculate estimated final duration
+    estimated_duration = len(final_list) * time_per_exercise
+    
+    if not args.dry_run:
+        print(f'Target duration: {max_duration_seconds}s ({max_duration_seconds//60}m {max_duration_seconds%60}s)')
+        print(f'Estimated duration: ~{int(estimated_duration)}s ({int(estimated_duration)//60}m {int(estimated_duration)%60}s)')
+        print(f'Generated {len(final_list)} exercises from {len(exercises)} unique exercise(s)')
+        print()
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     scale_name = scale_cfg.get('name', 'scale')
