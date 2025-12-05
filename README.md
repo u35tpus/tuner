@@ -70,7 +70,9 @@ Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfigu
   - `pause_between_blocks`: Pause zwischen Blöcken in Sekunden
   - `intro_beats`, `intro_bpm`: Intro-Metronom-Informationen
 
-- `repetitions_per_exercise`: wie oft ein Element wiederholt werden soll (älteres Feld, Script nutzt Dauer/Anzahl zur Berechnung)
+- `repetitions_per_exercise`: wie oft jede einzelne Übung wiederholt werden soll (Typ: integer, Default: `1`)
+  - **Priorität**: Wenn `exercises_count` gesetzt ist, wird diese Zahl verwendet. Wenn `exercises_count` nicht gesetzt ist, wird `repetitions_per_exercise` verwendet.
+  - **Beispiel**: `repetitions_per_exercise: 3` wiederholt jede Übung dreimal
 - `random_seed`: ganzzahlig oder `null`
 
 - `max_duration`: maximale Ziel-Sitzungsdauer in Sekunden (Default: `600` = 10 Minuten)

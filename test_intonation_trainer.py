@@ -572,5 +572,172 @@ class TestIntegration(unittest.TestCase):
                 f"Expected {expected_note_ons} note_ons for mixed exercises, got {len(note_ons)}")
 
 
+class TestRepetitionsPerExercise(unittest.TestCase):
+    """Test the repetitions_per_exercise configuration parameter."""
+
+    def test_repetitions_per_exercise_intervals(self):
+        """Test that repetitions_per_exercise works with intervals and exercises repeat consecutively."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repetitions = 3
+            exercises = [
+                ('interval', 60, 64),
+                ('interval', 62, 67),
+            ]
+            
+            # Build MIDI with repetitions
+            from mido import MidiFile, MidiTrack, Message, bpm2tempo
+            session_mid = MidiFile()
+            track = MidiTrack()
+            session_mid.tracks.append(track)
+            tempo_bpm = 120
+            track.append(__import__('mido').MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
+            ticks_per_beat = session_mid.ticks_per_beat
+            
+            def secs_to_ticks(s):
+                return int(s * (ticks_per_beat * tempo_bpm / 60.0))
+            
+            note_dur = 1.0
+            rest_between = 0.5
+            
+            # Build exercise list with repetitions
+            full_exercise_list = []
+            for _ in range(repetitions):
+                full_exercise_list.extend(exercises)
+            
+            for ex in full_exercise_list:
+                a, b = ex[1], ex[2]
+                track.append(Message('note_on', note=a, velocity=90, time=0))
+                track.append(Message('note_off', note=a, velocity=0, time=secs_to_ticks(note_dur)))
+                track.append(Message('note_on', note=b, velocity=90, time=secs_to_ticks(0.1)))
+                track.append(Message('note_off', note=b, velocity=0, time=secs_to_ticks(note_dur)))
+                track.append(__import__('mido').MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+            
+            midi_path = os.path.join(tmpdir, 'session.mid')
+            session_mid.save(midi_path)
+            
+            # Verify: total exercises should be original count × repetitions
+            expected_exercises = len(exercises) * repetitions
+            expected_note_ons = expected_exercises * 2  # Each interval has 2 note_ons
+            
+            mid = MidiFile(midi_path)
+            read_track = mid.tracks[0]
+            note_ons = [m for m in read_track if hasattr(m, 'note') and m.type == 'note_on']
+            
+            self.assertEqual(len(note_ons), expected_note_ons,
+                f"Expected {expected_note_ons} note_ons for {expected_exercises} exercises, got {len(note_ons)}")
+
+    def test_repetitions_per_exercise_triads(self):
+        """Test that repetitions_per_exercise works with triads and exercises repeat consecutively."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repetitions = 2
+            exercises = [
+                ('triad', (60, 64, 67)),
+                ('triad', (62, 66, 69)),
+            ]
+            
+            # Build MIDI with repetitions
+            from mido import MidiFile, MidiTrack, Message, bpm2tempo
+            session_mid = MidiFile()
+            track = MidiTrack()
+            session_mid.tracks.append(track)
+            tempo_bpm = 120
+            track.append(__import__('mido').MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
+            ticks_per_beat = session_mid.ticks_per_beat
+            
+            def secs_to_ticks(s):
+                return int(s * (ticks_per_beat * tempo_bpm / 60.0))
+            
+            note_dur = 1.0
+            rest_between = 0.5
+            
+            # Build exercise list with repetitions
+            full_exercise_list = []
+            for _ in range(repetitions):
+                full_exercise_list.extend(exercises)
+            
+            for ex in full_exercise_list:
+                notes = list(ex[1])
+                for i, n in enumerate(notes):
+                    track.append(Message('note_on', note=n, velocity=90, time=0))
+                    track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
+                track.append(__import__('mido').MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+            
+            midi_path = os.path.join(tmpdir, 'session.mid')
+            session_mid.save(midi_path)
+            
+            # Verify: total exercises should be original count × repetitions
+            expected_exercises = len(exercises) * repetitions
+            expected_note_ons = expected_exercises * 3  # Each triad has 3 note_ons
+            
+            mid = MidiFile(midi_path)
+            read_track = mid.tracks[0]
+            note_ons = [m for m in read_track if hasattr(m, 'note') and m.type == 'note_on']
+            
+            self.assertEqual(len(note_ons), expected_note_ons,
+                f"Expected {expected_note_ons} note_ons for {expected_exercises} triads, got {len(note_ons)}")
+
+    def test_repetitions_per_exercise_consecutive_order(self):
+        """Test that repeated exercises appear consecutively in the MIDI file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repetitions = 2
+            # Single exercise to verify consecutive repetition
+            exercises = [('interval', 60, 64)]
+            
+            from mido import MidiFile, MidiTrack, Message, bpm2tempo
+            session_mid = MidiFile()
+            track = MidiTrack()
+            session_mid.tracks.append(track)
+            tempo_bpm = 120
+            track.append(__import__('mido').MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
+            ticks_per_beat = session_mid.ticks_per_beat
+            
+            def secs_to_ticks(s):
+                return int(s * (ticks_per_beat * tempo_bpm / 60.0))
+            
+            note_dur = 1.0
+            rest_between = 0.5
+            
+            # Add exercise multiple times consecutively
+            for rep in range(repetitions):
+                for ex in exercises:
+                    a, b = ex[1], ex[2]
+                    track.append(Message('note_on', note=a, velocity=90, time=0))
+                    track.append(Message('note_off', note=a, velocity=0, time=secs_to_ticks(note_dur)))
+                    track.append(Message('note_on', note=b, velocity=90, time=secs_to_ticks(0.1)))
+                    track.append(Message('note_off', note=b, velocity=0, time=secs_to_ticks(note_dur)))
+                    track.append(__import__('mido').MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+            
+            midi_path = os.path.join(tmpdir, 'session.mid')
+            session_mid.save(midi_path)
+            
+            mid = MidiFile(midi_path)
+            read_track = mid.tracks[0]
+            note_ons = [m for m in read_track if hasattr(m, 'note') and m.type == 'note_on']
+            
+            # Should have 4 note_ons: 2 for each repetition of the interval
+            expected_note_ons = repetitions * 2
+            self.assertEqual(len(note_ons), expected_note_ons,
+                f"Expected {expected_note_ons} note_ons for {repetitions} repetitions, got {len(note_ons)}")
+            
+            # Verify the notes appear in the correct order (60, 64, 60, 64)
+            expected_note_sequence = [60, 64, 60, 64]
+            actual_note_sequence = [m.note for m in note_ons]
+            self.assertEqual(actual_note_sequence, expected_note_sequence,
+                f"Notes should repeat consecutively in order, got {actual_note_sequence}")
+
+    def test_repetitions_per_exercise_default_value(self):
+        """Test that default value is 10 when not specified."""
+        cfg = {}
+        default_repetitions = cfg.get('repetitions_per_exercise', 10)
+        self.assertEqual(default_repetitions, 10, "Default repetitions_per_exercise should be 10")
+
+    def test_repetitions_per_exercise_custom_value(self):
+        """Test custom value for repetitions_per_exercise."""
+        cfg = {'repetitions_per_exercise': 7}
+        rep = cfg.get('repetitions_per_exercise', 10)
+        self.assertEqual(rep, 7, "Custom repetitions_per_exercise should be respected")
+
+
+
 if __name__ == '__main__':
     unittest.main()
