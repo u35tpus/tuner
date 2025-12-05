@@ -263,7 +263,7 @@ class TestSessionMIDIGeneration(unittest.TestCase):
             self.assertEqual(len(note_ons), 6)
 
     def test_session_midi_from_triads(self):
-        """Test session MIDI generation from triads."""
+        """Test session MIDI generation from triads (consecutive notes with no pause)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             exercises = [
                 ('triad', (60, 64, 67)),
@@ -288,11 +288,10 @@ class TestSessionMIDIGeneration(unittest.TestCase):
             
             for ex in exercises:
                 notes = list(ex[1])
-                for n in notes:
+                # Play notes consecutively with no pause between them
+                for i, n in enumerate(notes):
                     track.append(Message('note_on', note=n, velocity=90, time=0))
-                track.append(Message('note_off', note=notes[0], velocity=0, time=secs_to_ticks(note_dur)))
-                for n in notes[1:]:
-                    track.append(Message('note_off', note=n, velocity=0, time=0))
+                    track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
                 track.append(__import__('mido').MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
             
             session_mid.save(midi_path)
@@ -472,7 +471,7 @@ class TestIntegration(unittest.TestCase):
                 f"Expected {expected_note_ons} note_ons for {len(exercises)} intervals, got {len(note_ons)}")
 
     def test_exercise_to_midi_consistency_triads(self):
-        """Test that triad exercises generate correct MIDI note_on count."""
+        """Test that triad exercises generate correct MIDI note_on count (consecutive notes)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create exercise list with 3 triads
             exercises = [
@@ -480,7 +479,7 @@ class TestIntegration(unittest.TestCase):
                 ('triad', (62, 66, 69)),
                 ('triad', (65, 69, 72)),
             ]
-            expected_note_ons = len(exercises) * 3  # Each triad has 3 note_ons
+            expected_note_ons = len(exercises) * 3  # Each triad has 3 note_ons (played consecutively)
             
             # Build MIDI
             from mido import MidiFile, MidiTrack, Message, bpm2tempo
@@ -499,11 +498,11 @@ class TestIntegration(unittest.TestCase):
             
             for ex in exercises:
                 notes = list(ex[1])
-                for n in notes:
-                    track.append(Message('note_on', note=n, velocity=90, time=0))
-                track.append(Message('note_off', note=notes[0], velocity=0, time=secs_to_ticks(note_dur)))
-                for n in notes[1:]:
-                    track.append(Message('note_off', note=n, velocity=0, time=0))
+                # Play notes consecutively (one after another)
+                for i, n in enumerate(notes):
+                    time_offset = 0 if i == 0 else secs_to_ticks(note_dur)
+                    track.append(Message('note_on', note=n, velocity=90, time=time_offset))
+                    track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
                 track.append(__import__('mido').MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
             
             midi_path = os.path.join(tmpdir, 'session.mid')
@@ -519,7 +518,7 @@ class TestIntegration(unittest.TestCase):
                 f"Expected {expected_note_ons} note_ons for {len(exercises)} triads, got {len(note_ons)}")
 
     def test_exercise_to_midi_consistency_mixed(self):
-        """Test MIDI consistency with mixed intervals and triads."""
+        """Test MIDI consistency with mixed intervals and triads (no pause between triad notes)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             exercises = [
                 ('interval', 60, 64),
@@ -554,11 +553,10 @@ class TestIntegration(unittest.TestCase):
                     track.append(Message('note_off', note=b, velocity=0, time=secs_to_ticks(note_dur)))
                 elif ex[0] == 'triad':
                     notes = list(ex[1])
-                    for n in notes:
+                    # Play notes consecutively with no pause between them
+                    for i, n in enumerate(notes):
                         track.append(Message('note_on', note=n, velocity=90, time=0))
-                    track.append(Message('note_off', note=notes[0], velocity=0, time=secs_to_ticks(note_dur)))
-                    for n in notes[1:]:
-                        track.append(Message('note_off', note=n, velocity=0, time=0))
+                        track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
                 track.append(__import__('mido').MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
             
             midi_path = os.path.join(tmpdir, 'session.mid')

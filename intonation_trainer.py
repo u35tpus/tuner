@@ -510,13 +510,10 @@ def main():
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
                 elif ex[0] == 'triad':
                     notes = [int(n) for n in ex[1]]
-                    # start all notes together
-                    for n in notes:
+                    # Play notes consecutively with no pause between them
+                    for i, n in enumerate(notes):
                         track.append(Message('note_on', note=n, velocity=velocity, time=0))
-                    # hold for duration, then note_off for first with time=dur, others time=0
-                    track.append(Message('note_off', note=notes[0], velocity=0, time=secs_to_ticks(note_dur)))
-                    for n in notes[1:]:
-                        track.append(Message('note_off', note=n, velocity=0, time=0))
+                        track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
                     # rest between exercises
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
                 else:
@@ -585,11 +582,10 @@ def main():
                 track.append(mido.MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
                 dur = cfg.get('timing', {}).get('note_duration', 1.8)
                 ticks = int(mid.ticks_per_beat * (dur * tempo_bpm / 60.0))
-                for n in notes:
+                # Play notes consecutively with no pause between them
+                for i, n in enumerate(notes):
                     track.append(Message('note_on', note=int(n), velocity=velocity, time=0))
-                track.append(Message('note_off', note=int(notes[0]), velocity=0, time=ticks))
-                for n in notes[1:]:
-                    track.append(Message('note_off', note=int(n), velocity=0, time=0))
+                    track.append(Message('note_off', note=int(n), velocity=0, time=ticks))
                 mid.save(midi_path)
                 rendered = False
                 if method == 'soundfont' and os.path.exists(sf2_path):
