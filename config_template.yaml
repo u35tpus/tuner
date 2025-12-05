@@ -38,6 +38,11 @@ random_seed: null
 # Can be overridden via CLI with --max-duration
 max_duration: 600
 
+# Optional: specify a concrete number of exercises to include in the generated session.
+# If `exercises_count` is set and > 0 it takes precedence over `max_duration`.
+# Example: exercises_count: 120
+exercises_count: 3
+
 sound:
   method: soundfont
   soundfont_path: "piano/SalamanderGrandPiano.sf2"

@@ -417,9 +417,20 @@ def main():
     pause_between_reps = cfg.get('timing', {}).get('pause_between_reps', 1.0)
     # Each exercise takes ~note_duration + pause_between_reps seconds
     time_per_exercise = note_duration + pause_between_reps
-    max_exercises = int(max_duration_seconds / time_per_exercise)
-    if max_exercises < 1:
-        max_exercises = 1
+    # If config specifies concrete exercises_count, it takes precedence
+    exercises_count_cfg = cfg.get('exercises_count', None)
+    ec = None
+    if exercises_count_cfg is not None:
+        try:
+            ec = int(exercises_count_cfg)
+        except Exception:
+            ec = None
+    if ec is not None and ec > 0:
+        max_exercises = ec
+    else:
+        max_exercises = int(max_duration_seconds / time_per_exercise)
+        if max_exercises < 1:
+            max_exercises = 1
     
     # Build final list with enough exercises to fill (or approach) max_duration
     final_list = []
