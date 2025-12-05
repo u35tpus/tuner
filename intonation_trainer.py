@@ -417,59 +417,64 @@ def main():
     pause_between_reps = cfg.get('timing', {}).get('pause_between_reps', 1.0)
     # Each exercise takes ~note_duration + pause_between_reps seconds
     time_per_exercise = note_duration + pause_between_reps
-    # If config specifies concrete exercises_count, it takes precedence
+    
+    # Get configuration for exercise count and repetitions
     exercises_count_cfg = cfg.get('exercises_count', None)
-    ec = None
+    repetitions_per_exercise_cfg = cfg.get('repetitions_per_exercise', 1)
+    
+    # Convert exercises_count to integer if provided
+    exercises_count = None
     if exercises_count_cfg is not None:
         try:
-            ec = int(exercises_count_cfg)
+            exercises_count = int(exercises_count_cfg)
         except Exception:
-            ec = None
+            exercises_count = None
     
     # Determine how many times to repeat each exercise
-    # Priority: exercises_count > repetitions_per_exercise > duration-based calculation
-    repetitions = cfg.get('repetitions_per_exercise', 1)
+    # Priority: repetitions_per_exercise (if > 1) > exercises_count > duration-based calculation
+    actual_reps = 1
+    max_unique_exercises = len(exercises) if len(exercises) > 0 else 1
     
-    if ec is not None and ec > 0:
-        # exercises_count takes precedence: it specifies total exercise count
-        max_exercises = ec
-        # If exercises_count is set, calculate actual_reps from it
-        if len(exercises) > 0:
-            actual_reps = max(1, max_exercises // len(exercises))
+    if repetitions_per_exercise_cfg > 1:
+        # If repetitions_per_exercise is explicitly set, use it
+        actual_reps = repetitions_per_exercise_cfg
+    elif exercises_count is not None and exercises_count > 0:
+        # If exercises_count is set, calculate how many unique exercises to include
+        # such that unique_exercises * repetitions = exercises_count
+        # For simplicity, use exercises_count as the total count with reps = 1
+        actual_reps = 1
+        max_unique_exercises = exercises_count
+    else:
+        # Fall back to duration-based calculation
+        max_total_exercises = int(max_duration_seconds / time_per_exercise)
+        if max_total_exercises < 1:
+            max_total_exercises = 1
+        # Calculate how many times to repeat to fill the duration
+        if max_unique_exercises > 0:
+            actual_reps = max(1, max_total_exercises // max_unique_exercises)
         else:
             actual_reps = 1
-    else:
-        # Use repetitions_per_exercise or duration-based calculation
-        # First calculate max based on duration
-        max_exercises = int(max_duration_seconds / time_per_exercise)
-        if max_exercises < 1:
-            max_exercises = 1
-        # Then apply repetitions_per_exercise if it's explicitly set
-        if repetitions > 1:
-            # Use explicit repetitions setting
-            actual_reps = repetitions
-        else:
-            # Fall back to duration-based calculation
-            if len(exercises) > 0:
-                actual_reps = max(1, max_exercises // len(exercises))
-            else:
-                actual_reps = 1
     
     # Build final list with exercises repeated according to actual_reps
     final_list = []
     if len(exercises) > 0:
         if args.from_text:
             # When loading from text, use exercises as-is without repetition
-            final_list = exercises[:max_exercises]
+            # Respect exercises_count if set
+            if exercises_count is not None and exercises_count > 0:
+                final_list = exercises[:exercises_count]
+            else:
+                max_count = int(max_duration_seconds / time_per_exercise)
+                final_list = exercises[:max(1, max_count)]
         else:
-            # Normal mode: repeat exercises
+            # Normal mode: repeat each exercise actual_reps times, up to max exercises if set
             for ex in exercises:
+                if exercises_count is not None and len(final_list) >= exercises_count:
+                    break
                 for _ in range(actual_reps):
                     final_list.append(ex)
-                    if ec is not None and len(final_list) >= max_exercises:
+                    if exercises_count is not None and len(final_list) >= exercises_count:
                         break
-                if ec is not None and len(final_list) >= max_exercises:
-                    break
     
     # Calculate estimated final duration
     estimated_duration = len(final_list) * time_per_exercise

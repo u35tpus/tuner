@@ -70,17 +70,22 @@ Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfigu
   - `pause_between_blocks`: Pause zwischen Blöcken in Sekunden
   - `intro_beats`, `intro_bpm`: Intro-Metronom-Informationen
 
-- `repetitions_per_exercise`: wie oft jede einzelne Übung wiederholt werden soll (Typ: integer, Default: `1`)
-  - **Priorität**: Wenn `exercises_count` gesetzt ist, wird diese Zahl verwendet. Wenn `exercises_count` nicht gesetzt ist, wird `repetitions_per_exercise` verwendet.
-  - **Beispiel**: `repetitions_per_exercise: 3` wiederholt jede Übung dreimal
+- `repetitions_per_exercise`: wie oft jede einzelne (einzigartige) Übung wiederholt werden soll (Typ: integer, Default: `1`)
+  - **Verhalten**: Wenn > 1, wird jede generierte Übung so viele Male **direkt hintereinander** wiederholt
+  - **Beispiel**: `repetitions_per_exercise: 3` mit 97 einzigartigen Übungen ergibt 97 × 3 = 291 Trainingseinheiten
+  - **Priorität**: `repetitions_per_exercise` hat Vorrang vor `exercises_count`
+  - **Konsekutive Wiederholungen**: Jede Übung wird vollständig wiederholt, bevor die nächste Übung beginnt
+  
 - `random_seed`: ganzzahlig oder `null`
 
 - `max_duration`: maximale Ziel-Sitzungsdauer in Sekunden (Default: `600` = 10 Minuten)
+  - Nur angewandt, wenn `repetitions_per_exercise: 1` und `exercises_count: null`
 
-- **Neu**: `exercises_count` (optional)
+- `exercises_count` (optional)
   - Typ: integer oder `null`
-  - Beschreibung: Wenn `exercises_count` gesetzt und > 0, dann wird exakt diese Anzahl Übungen erzeugt.
-  - Priorität: `exercises_count` hat Vorrang vor `max_duration`. Wenn `exercises_count: null` oder nicht gesetzt ist, wird nach `max_duration` gerechnet.
+  - Beschreibung: Wenn `repetitions_per_exercise: 1`, bestimmt dies die Anzahl der zu generierenden eindeutigen Übungen
+  - Priorität: `repetitions_per_exercise` > `exercises_count` > `max_duration`
+  - Wenn `repetitions_per_exercise > 1`: `exercises_count` wird ignoriert
 
 - `sound`:
   - `method`: `soundfont` (Standard)
@@ -98,6 +103,7 @@ Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfigu
   - `--dry-run` : Erzeugt keine Audioausgabe, sondern schreibt stattdessen ein Text-Log der generierten Übungen (human-readable). Praktisch zum Review.
   - `--verbose` : Zusätzlich zur Audioausgabe immer ein Text-Log schreiben.
   - `--text-file` : Expliziter Pfad für das Text-Log (überschreibt Standardname). Wird mit `--dry-run` oder `--verbose` verwendet.
+
   - `--max-duration` : Maximale Sitzungsdauer in Sekunden (überschreibt `max_duration` in der YAML, falls explizit angegeben). Default: `600`.
   - `--from-text` : Statt die Übungen aus der Config zu generieren, lade sie aus einem zuvor erzeugten Text-Log und rendere daraus die Session.
 
