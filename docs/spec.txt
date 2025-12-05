@@ -1,0 +1,132 @@
+# Technical Specification – Final Version 1.2  
+**  
+**Project Name:** Intonation Trainer – Scale-Aware Random Interval & Triad Generator (CLI)  
+**Date:** December 05, 2025  
+**Language:** 100% English  
+**Interface:** Pure console Python tool – everything is driven by one YAML config file
+
+### 1. Single command
+
+```bash
+python intonation_trainer.py config.yaml                 # auto output name with date
+python intonation_trainer.py config.yaml --output my_session.mp3
+```
+
+### 2. Full YAML configuration example (the only thing the user ever edits)
+
+```yaml
+# =============================================
+# Intonation Trainer – complete config (2025)
+# =============================================
+
+output:
+  filename: "Intonation_{scale}_{date}.mp3"      # {date} and {scale} auto-replaced
+  format: mp3                                    # mp3 or m4a
+  normalize_lufs: -16
+
+# Vocal range that must never be exceeded
+vocal_range:
+  lowest_note:  A3      # e.g. low note a baritone can comfortably sing
+  highest_note: A4      # e.g. high note without strain
+
+# Scale / key definition – THIS IS THE KEY FEATURE
+scale:
+  name: "A minor"                          # free text, only for filename
+  root: A3                                 # starting note of the scale
+  type: natural_minor                      # or: major, harmonic_minor, melodic_minor,
+                                           #     dorian, phrygian, lydian, mixolydian, etc.
+  # Custom scale (overrides name/root/type above if present)
+  # notes: [C4, Db4, E4, F4, Gb4, G4, Bb4]   # example: C phrygian dominant
+
+# Content selection
+content:
+  intervals:
+    ascending: true
+    descending: true
+    include_minor_3rd_even_in_major: true   # adds m3 on top of major-scale intervals
+    max_interval: perfect_octave            # do not generate anything larger than octave
+
+  triads:
+    enabled: true
+    include_inversions: true                # root, 1st and 2nd inversions
+    types: [major, minor, diminished]       # only those that exist in the chosen scale
+
+# Timing (seconds)
+timing:
+  note_duration:        1.8
+  pause_between_reps:   1.0
+  pause_between_blocks: 4.0
+  intro_beats:          4
+  intro_bpm:            120
+
+# Behaviour
+repetitions_per_exercise: 10
+random_seed: null                            # null = truly random every run
+
+# Sound
+sound:
+  method: soundfont                          # "soundfont" or "single_wav_samples"
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
+```
+
+### 3. How the program works with scales
+
+1. User writes any scale they want:
+   - Standard scales:  
+     `type: major → C D E F G A B`  
+     `type: natural_minor → A B C D E F G`  
+     `type: harmonic_minor → A B C D E F G#`  
+     etc.
+
+   - Or directly lists notes with custom → `notes: [D4, E4, F4, G4, A4, Bb4, C5]`
+
+2. The script builds the complete pool of allowed notes inside vocal_range → only white-list notes from the chosen scale that lie between lowest_note and highest_note.
+
+3. From this pool it generates every possible:
+   - Melodic interval ≤ octave (ascending and/or descending)
+   - Triad (root position + inversions if requested) using only scale notes
+
+4. Duplicates are removed → final list of unique exercises (usually 12–20 intervals + 4–12 triads depending on scale and vocal range).
+
+5. Every exercise is repeated exactly repetitions_per_exercise times (default 10).
+
+6. The whole list is randomly shuffled every single run.
+
+### 4. Example sessions user can create instantly
+
+```yaml
+# 1. Classic C major (tenor)
+scale: { name: "C major", root: C4, type: major }
+vocal_range: { lowest_note: C4, highest_note: C5 }
+
+# 2. A minor for alto
+scale: { name: "A harmonic minor", root: A3, type: harmonic_minor }
+vocal_range: { lowest_note: E3, highest_note: G5 }
+
+# 3. G mixolydian (bluesy feel)
+scale: { name: "G mixolydian", root: G3, type: mixolydian }
+
+# 4. Fully custom “Hungarian minor”
+scale:
+  notes: [A3, B3, C4, D4, Eb4, F4, G#4, A4, B4, C5]
+```
+
+### 5. Implementation notes (Python)
+
+- Notes parsed with music21 or a tiny internal note→MIDI converter
+- All interval/triad generation is pure Python logic
+- Rendering: FluidSynth + Salamander Grand Piano (or 13 pre-rendered WAVs if you prefer zero dependencies)
+- Final assembly & normalising: pydub + ffmpeg
+
+### 6. Deliverables (what you will get tomorrow if you say “go”)
+
+1. `intonation_trainer.py` – ~450 lines, single file, fully commented
+2. Ready-to-use `config_template.yaml`
+3. Best free Salamander Grand Piano SoundFont (48 kHz, 300 MB)
+4. Example configs for:
+   - C major
+   - A natural / harmonic minor
+   - Dorian & Phrygian modes
+
+Just write “go” or “build it” and tomorrow morning you will have the complete, working, infinitely configurable trainer.

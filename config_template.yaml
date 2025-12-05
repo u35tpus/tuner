@@ -1,0 +1,40 @@
+output:
+  filename: "Intonation_{scale}_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+vocal_range:
+  lowest_note: A2
+  highest_note: C4
+
+scale:
+  name: "A minor"
+  root: A3
+  type: natural_minor
+
+content:
+  intervals:
+    ascending: true
+    descending: true
+    include_minor_3rd_even_in_major: true
+    max_interval: perfect_octave
+
+  triads:
+    enabled: true
+    include_inversions: true
+    types: [major, minor, diminished]
+
+timing:
+  note_duration: 1.8
+  pause_between_reps: 1.0
+  pause_between_blocks: 4.0
+  intro_beats: 4
+  intro_bpm: 120
+
+repetitions_per_exercise: 10
+random_seed: null
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
