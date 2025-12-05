@@ -26,7 +26,7 @@ content:
 
 timing:
   note_duration: 2.3
-  pause_between_reps: 0.01
+  pause_between_reps: 1.0
   pause_between_blocks: 4.0
   intro_beats: 4
   intro_bpm: 120
