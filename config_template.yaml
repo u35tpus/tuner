@@ -31,7 +31,7 @@ timing:
   intro_beats: 4
   intro_bpm: 120
 
-repetitions_per_exercise: 3
+repetitions_per_exercise: 8
 random_seed: null
 
 # Session duration limit in seconds (default 600 = 10 minutes)
