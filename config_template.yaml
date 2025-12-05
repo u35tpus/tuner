@@ -25,7 +25,7 @@ content:
     types: [major, minor, diminished]
 
 timing:
-  note_duration: 2.3
+  note_duration: 1.0
   pause_between_reps: 1.0
   pause_between_blocks: 4.0
   intro_beats: 4
