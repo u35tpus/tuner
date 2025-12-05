@@ -8,3 +8,6 @@ dist/
 build/
 *.egg-info/
 *.mp3
+*.wav
+logs/
+drylog.txt

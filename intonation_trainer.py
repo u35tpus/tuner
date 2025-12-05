@@ -277,6 +277,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
     parser.add_argument('--output', '-o', help='Output filename (overrides config)')
+    parser.add_argument('--dry-run', action='store_true', help='Do not render audio; only write a text log of generated exercises')
+    parser.add_argument('--verbose', action='store_true', help='Also write a text log of generated exercises alongside the audio output')
+    parser.add_argument('--text-file', help='Explicit path for the text log (overrides default)')
     args = parser.parse_args()
 
     cfg = parse_yaml(args.config)
@@ -332,8 +335,40 @@ def main():
     scale_name = scale_cfg.get('name', 'scale')
     out_name = args.output or fname_template.format(scale=scale_name.replace(' ', '_'), date=timestamp)
 
+    def midi_to_note_name(midi: int) -> str:
+        # Convert MIDI number back to a note name like C4, Db3
+        octave = (midi // 12) - 1
+        pc = midi % 12
+        names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        name = names[pc]
+        return f"{name}{octave}"
+
+    def write_text_log(path: str, exercises_list):
+        with open(path, 'w', encoding='utf8') as f:
+            f.write(f"Intonation Trainer Log\n")
+            f.write(f"Scale: {scale_name}\n")
+            f.write(f"Generated: {len(exercises_list)} exercises (with repetitions)\n\n")
+            for i, ex in enumerate(exercises_list, start=1):
+                if ex[0] == 'interval':
+                    a, b = ex[1], ex[2]
+                    f.write(f"{i:04d}: INTERVAL  {midi_to_note_name(a)} ({a}) -> {midi_to_note_name(b)} ({b})\n")
+                elif ex[0] == 'triad':
+                    notes = ex[1]
+                    names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
+                    f.write(f"{i:04d}: TRIAD     {names}\n")
+                else:
+                    f.write(f"{i:04d}: UNKNOWN   {ex}\n")
+        print(f'Wrote text log to {path}')
+
     tmpdir = tempfile.mkdtemp(prefix='intonation_')
     parts = []
+    # If dry run requested, write only the text log and exit (no audio rendering)
+    if args.dry_run:
+        text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
+        write_text_log(text_path, final_list)
+        shutil.rmtree(tmpdir)
+        return
+
     try:
         sf_cfg = cfg.get('sound', {})
         method = sf_cfg.get('method', 'soundfont')
@@ -461,6 +496,10 @@ def main():
                         pass
                 else:
                     print(f'ffmpeg not found — wrote WAV to {temp_wav}. To get {out_ext}, install ffmpeg and re-run.')
+        # If verbose requested, always write the text log alongside audio output
+        if args.verbose:
+            text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
+            write_text_log(text_path, final_list)
 
     finally:
         shutil.rmtree(tmpdir)

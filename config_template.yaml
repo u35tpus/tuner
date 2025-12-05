@@ -8,8 +8,8 @@ vocal_range:
   highest_note: C4
 
 scale:
-  name: "A minor"
-  root: A3
+  name: "F minor"
+  root: F2
   type: natural_minor
 
 content:
@@ -25,8 +25,8 @@ content:
     types: [major, minor, diminished]
 
 timing:
-  note_duration: 1.8
-  pause_between_reps: 1.0
+  note_duration: 2.3
+  pause_between_reps: 0.01
   pause_between_blocks: 4.0
   intro_beats: 4
   intro_bpm: 120
