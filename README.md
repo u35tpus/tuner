@@ -57,21 +57,37 @@ Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfigu
   - `highest_note`: z. B. `C4`
 
 - `sequences` (optional):
-  - Alternativ zu `scale` / `content`: Definiere explizite Note-Sequenzen
-  - Format: Liste von Strings in **ABC-Notation** oder **komma-getrennt**
-  - Beispiel **ABC-Notation** (empfohlen):
+  - Alternativ zu `scale` / `content`: Definiere explizite Note-Sequenzen mit optionalen Notenlängen
+  - **Strukturiertes Format** (empfohlen, mit Notenlängen):
     ```yaml
     sequences:
-      - "|D#3 A#2 C4| C4 |"    # Pipe (|) markiert Taktstrich, Noten raumgetrennt
-      - "|G3 C4| A4 D3 |"     # Mehrere Takte in einer Sequenz
-      - "|G#2 C4 E3|"          # Einfache Sequenz
+      signature: "4/4"          # Taktart (nur zur Information)
+      unit_length: 1.0          # Basis-Notenlänge (1.0 = Viertelnote, 0.5 = Halbnote, etc.)
+      notes:
+        - "|C4 D42 E4 F4|"      # C, D (doppelt), E, F Vierteln in 4/4
+        - "|G3 C4 A4/2 D3|"     # G, C Vierteln; A (halbe); D Vierteln
+        - "|G#2 C4 E3|"         # Alle Vierteln
     ```
-  - Beispiel **komma-getrennt** (rückwärts-kompatibel):
+  - **Notenlängen-Syntax**:
+    - `C4` — Viertelnote (standard, multipliziert mit `unit_length`)
+    - `C42` oder `C4*2` — doppelte Länge (Halbnote bei unit_length=1.0)
+    - `C4/2` — halbe Länge (Achtelnote bei unit_length=1.0)
+    - `C4/4` — Viertel der Länge (Sechzehntelnote)
+  
+  - **Einfaches Format** (komma-getrennt, rückwärts-kompatibel, ohne Notenlängen):
     ```yaml
     sequences:
       - "D#3, A#2, C4, C4"     # Komma-getrennte Notennamen
       - "G3, C4, A4, D3"       # Alternative Format
     ```
+  
+  - **Alte ABC-Notation** (einfache Liste, ohne Taktart/unit_length):
+    ```yaml
+    sequences:
+      - "|D#3 A#2 C4| C4 |"    # Pipe (|) markiert Taktstrich, Noten raumgetrennt
+      - "|G3 C4| A4 D3 |"     # Mehrere Takte in einer Sequenz
+    ```
+  
   - **Priorität**: Wenn `sequences` definiert, werden `scale` und `content` ignoriert
   - **Keine `vocal_range` nötig**: Sequenzen spezifizieren Noten explizit
 
@@ -138,19 +154,24 @@ Wichtig: Es gibt aktuell keine CLI-Flag `--exercises-count`; `exercises_count` w
 python3 intonation_trainer.py config_template.yaml --dry-run --max-duration 180 --text-file test_3min.txt
 ```
 
-2) Erzeuge Session mit expliziten Note-Sequenzen in ABC-Notation (neue Datei `config_sequences.yaml`):
+2) Erzeuge Session mit expliziten Note-Sequenzen in ABC-Notation mit Notenlängen:
 
 ```yaml
 # in config_sequences.yaml
 sequences:
-  - "|D#3 A#2 C4| C4 |"      # ABC-Notation mit Taktstrichsymbolen
-  - "|G3 C4| A4 D3 |"
-  - "|G#2 C4 E3| F#3 D#3 |"
+  signature: "4/4"
+  unit_length: 1.0  # Basis-Notenlänge (1.0 = Viertelnote)
+  notes:
+    - "|C4 D42 E4 F4|"       # C, D (doppelt), E, F
+    - "|G3 C4 A4/2 D3|"      # G, C (normal), A (halbe), D (normal)
+    - "|G#2 C4 E3|"          # Alle normal
+    - "|G3 C4 A4 D3|"        # Alle normal
+    - "|G#2 C4 E3 F#3 D#3|"  # Alle normal
 
 repetitions_per_exercise: 3    # Jede Sequenz 3x wiederholt
 
 timing:
-  note_duration: 1.0
+  note_duration: 1.0          # Fallback für non-sequence exercises
   pause_between_reps: 1.0
 
 sound:
