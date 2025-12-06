@@ -4,13 +4,18 @@ output:
   normalize_lufs: -16
 
 # When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
-# Each sequence can be specified in ABC notation with bar lines (|) and space-separated notes.
+# Sequences use ABC notation with optional note durations.
+# Note duration suffix examples: "C4" (default), "C42" (double length), "C4/2" (half length)
+# L (unit_length): Base duration for notes (default 1.0 = quarter note)
 sequences:
-  - "|D#3 A#2 C4| C4 |"
-  - "|G3 C4| A4 D3 |"
-  - "|A#2 C4 F3| G#2 |"
-  - "|G3 C4 A4 D3| E3 |"
-  - "|G#2 C4 E3| F#3 D#3 |"
+  signature: "4/4"
+  unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
+  notes:
+    - "|C4 D42 E4 F4|"      # C, D (double), E, F quarter notes in 4/4
+    - "|G3 C4 A4/2 D3|"     # G, C quarter notes, A eighth note, D quarter
+    - "|A#2 C4 F3 G#2|"     # All quarter notes
+    - "|G3 C4 A4 D3 E3|"    # 5 quarter notes
+    - "|G#2 C4 E3 F#3 D#3|" # 5 quarter notes
 
 timing:
   note_duration: 1.0

@@ -159,61 +159,153 @@ def parse_yaml(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def parse_abc_sequence(abc_str):
-    """Parse ABC notation sequence into tuple of MIDI note numbers.
+def parse_abc_note_with_duration(note_str, default_length=1.0):
+    """Parse ABC note string with optional duration suffix.
     
-    ABC format: |D#3 A#2 C4| or |D#3 A#2 C4 C4| G3 C4 A4 D3 |
+    Examples:
+      "C4" -> (60, 1.0)  [quarter note at default length]
+      "C4/2" -> (60, 0.5)  [eighth note, half the length]
+      "C4*2" or "C42" -> (60, 2.0)  [half note, double the length]
+      "G#3" -> (56, 1.0)
+    
+    Args:
+        note_str: String like "C4", "C42", "C4/2", "G#3*2"
+        default_length: Base unit length in beats (typically 1.0 for quarter note)
+    
+    Returns:
+        Tuple (midi_number, duration_in_beats) or None if parsing fails
+    """
+    import re
+    note_str = note_str.strip()
+    
+    # Extract note name and optional length modifier
+    # Pattern: letter + optional accidental + single digit octave + optional length
+    # Examples: C4, C#4, Db4, C42, C4/2, C4*2
+    match = re.match(r'^([A-G][#b]?)(\d)([\d/\*]*)$', note_str)
+    if not match:
+        return None
+    
+    note_name_part = match.group(1) + match.group(2)  # e.g., "C#4"
+    length_part = match.group(3)  # e.g., "2" or "/2" or "*2"
+    
+    try:
+        midi = note_name_to_midi(note_name_part)
+    except Exception:
+        return None
+    
+    # Parse length modifier
+    duration = default_length
+    if length_part:
+        if length_part.startswith('/'):
+            # Division: /2 means half duration
+            divisor = float(length_part[1:])
+            duration = default_length / divisor
+        elif length_part.startswith('*'):
+            # Multiplication: *2 means double duration
+            multiplier = float(length_part[1:])
+            duration = default_length * multiplier
+        else:
+            # Direct multiplier: "2" means 2x length (ABC standard notation)
+            multiplier = float(length_part)
+            duration = default_length * multiplier
+    
+    return (midi, duration)
+
+
+def parse_abc_sequence(abc_str, default_length=1.0):
+    """Parse ABC notation sequence with durations into list of (midi, duration) tuples.
+    
+    ABC format: |D#3 A#2 C4| C4 |  or  |C4 D42 E4/2 F4|
     Pipes (|) mark bar lines and are ignored.
     Notes are space-separated within bars.
-    Returns tuple of MIDI numbers or None if parsing fails.
+    Default length (L) can be specified (e.g., 1.0 = quarter note).
+    
+    Args:
+        abc_str: ABC notation string (e.g., "|C4 D42 E4|")
+        default_length: Unit length in beats (default 1.0 for quarter note)
+    
+    Returns:
+        List of (midi_number, duration) tuples, or None if parsing fails
     """
     # Remove all bar line characters
     abc_str = abc_str.replace('|', ' ')
     # Split by whitespace and filter empty strings
-    note_names = [n.strip() for n in abc_str.split() if n.strip()]
+    note_strs = [n.strip() for n in abc_str.split() if n.strip()]
     
-    if not note_names:
+    if not note_strs:
         return None
     
-    try:
-        notes = tuple(note_name_to_midi(n) for n in note_names)
-        return notes
-    except Exception:
-        return None
+    notes_with_durations = []
+    for note_str in note_strs:
+        parsed = parse_abc_note_with_duration(note_str, default_length)
+        if parsed is None:
+            return None  # Fail if any note cannot be parsed
+        notes_with_durations.append(parsed)
+    
+    return notes_with_durations
 
 
-def parse_sequences_from_config(sequences_cfg):
+def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
     """Parse sequences from config and return list of exercises.
     
-    Supports two formats:
-    1. Comma-separated notes: "D#3, A#2, C4"
-    2. ABC notation with bar lines: "|D#3 A#2 C4|" or "|D#3 A#2 C4 C4| G3 C4 A4 D3 |"
+    Supports multiple formats:
+    1. Comma-separated notes (old): "D#3, A#2, C4"
+    2. ABC notation (simple): "|D#3 A#2 C4|"
+    3. ABC notation with durations: "|C4 D42 E4/2|" (requires default_unit_length)
+    4. Full structure with signature, L, notes:
+       sequences:
+         signature: "4/4"
+         unit_length: 0.25  # or L: 1/4
+         notes: ["|C4 D42|", "..."]
     
-    Returns list of ('sequence', tuple_of_midi_notes) exercises.
+    Returns list of ('sequence', notes_with_durations) exercises.
+    notes_with_durations is list of (midi, duration) tuples.
     """
     exercises = []
     if not sequences_cfg:
         return exercises
     
+    # Handle structured format (dict with signature, L, notes)
+    if isinstance(sequences_cfg, dict):
+        notes_list = sequences_cfg.get('notes', [])
+        unit_length_val = sequences_cfg.get('unit_length', 1.0)
+        
+        # Also support 'L' format (e.g., "1/4" -> 0.25)
+        if 'L' in sequences_cfg:
+            L_str = sequences_cfg['L']
+            if isinstance(L_str, str) and '/' in L_str:
+                parts = L_str.split('/')
+                unit_length_val = float(parts[0]) / float(parts[1])
+        
+        for seq_str in notes_list:
+            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val)
+            if notes_with_dur:
+                exercises.append(('sequence', notes_with_dur))
+            else:
+                print(f'Warning: Could not parse ABC sequence "{seq_str}"')
+        return exercises
+    
+    # Handle list format (simple strings, backward compatible)
     for seq_str in sequences_cfg:
         # Detect format: if contains pipe (|), treat as ABC; else as comma-separated
         if '|' in seq_str:
-            # ABC format
-            notes = parse_abc_sequence(seq_str)
-            if notes:
-                exercises.append(('sequence', notes))
+            # ABC format (with optional durations)
+            notes_with_dur = parse_abc_sequence(seq_str, default_unit_length)
+            if notes_with_dur:
+                exercises.append(('sequence', notes_with_dur))
             else:
                 print(f'Warning: Could not parse ABC sequence "{seq_str}"')
         else:
-            # Comma-separated format (backward compatible)
+            # Comma-separated format (backward compatible, no durations)
             note_names = [n.strip() for n in seq_str.split(',')]
             try:
-                notes = tuple(note_name_to_midi(n) for n in note_names)
+                notes = [(note_name_to_midi(n), default_unit_length) for n in note_names]
                 exercises.append(('sequence', notes))
             except Exception as e:
                 print(f'Warning: Could not parse sequence "{seq_str}": {e}')
     
     return exercises
+
 
 
 # ---------------------- Exercise generation ---------------------------
@@ -397,8 +489,14 @@ def main():
                     names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
                     f.write(f"{i:04d}: TRIAD     {names}\n")
                 elif ex[0] == 'sequence':
-                    notes = ex[1]
-                    names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
+                    notes_with_dur = ex[1]
+                    # Handle both old format (just MIDI numbers) and new format (with durations)
+                    if notes_with_dur and isinstance(notes_with_dur[0], tuple):
+                        # New format: list of (midi, duration) tuples
+                        names = ' '.join([f"{midi_to_note_name(n)}({n}):d{d:.2f}" for n, d in notes_with_dur])
+                    else:
+                        # Old format: just MIDI numbers
+                        names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes_with_dur])
                     f.write(f"{i:04d}: SEQUENCE  {names}\n")
                 else:
                     f.write(f"{i:04d}: UNKNOWN   {ex}\n")
@@ -736,19 +834,35 @@ def main():
                 if not rendered:
                     synth_simple_wav(notes, cfg.get('timing', {}).get('note_duration', 1.8), out_wav)
             elif typ == 'sequence':
-                notes = list(ex[1])
+                # ex[1] is now a list of (midi, duration) tuples
+                # If old format (just midi numbers), assume default duration
+                notes_with_durations = ex[1]
+                
+                # Handle both old format (tuple of ints) and new format (list of tuples)
+                if notes_with_durations and isinstance(notes_with_durations[0], tuple):
+                    # New format: list of (midi, duration) tuples
+                    notes_data = notes_with_durations
+                else:
+                    # Old format: tuple/list of MIDI numbers, use default duration
+                    default_dur = cfg.get('timing', {}).get('note_duration', 1.0)
+                    notes_data = [(n, default_dur) for n in notes_with_durations]
+                
                 midi_path = os.path.join(tmpdir, f'ex_{idx:04d}.mid')
                 mid = MidiFile()
                 track = MidiTrack()
                 mid.tracks.append(track)
                 tempo_bpm = cfg.get('timing', {}).get('intro_bpm', 120)
                 track.append(mido.MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
-                dur = cfg.get('timing', {}).get('note_duration', 1.8)
-                ticks = int(mid.ticks_per_beat * (dur * tempo_bpm / 60.0))
-                # Play notes consecutively with no pause between them
-                for i, n in enumerate(notes):
-                    track.append(Message('note_on', note=int(n), velocity=velocity, time=0))
-                    track.append(Message('note_off', note=int(n), velocity=0, time=ticks))
+                
+                # Play notes consecutively, each with its own duration
+                current_time = 0
+                for midi_note, duration in notes_data:
+                    ticks = int(mid.ticks_per_beat * (duration * tempo_bpm / 60.0))
+                    track.append(Message('note_on', note=int(midi_note), velocity=velocity, time=current_time))
+                    current_time = ticks
+                    track.append(Message('note_off', note=int(midi_note), velocity=0, time=current_time))
+                    current_time = 0  # Reset time for next note
+                
                 mid.save(midi_path)
                 rendered = False
                 if method == 'soundfont' and os.path.exists(sf2_path):
@@ -757,7 +871,10 @@ def main():
                     except Exception:
                         rendered = False
                 if not rendered:
-                    synth_simple_wav(notes, cfg.get('timing', {}).get('note_duration', 1.8), out_wav)
+                    # Fallback: use just the MIDI note numbers
+                    midi_numbers = [m for m, d in notes_data]
+                    synth_simple_wav(midi_numbers, 1.0, out_wav)
+
             else:
                 continue
             if PYDUB_AVAILABLE:

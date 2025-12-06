@@ -771,7 +771,7 @@ class TestSequenceGeneration(unittest.TestCase):
     """Test note sequence parsing and generation (comma-separated and ABC notation)."""
 
     def test_parse_sequences_comma_separated_basic(self):
-        """Test parsing basic comma-separated note sequences."""
+        """Test parsing basic comma-separated note sequences (backward compatible)."""
         sequences_cfg = [
             "D#3, A#2, C4",
             "G3, C4",
@@ -779,13 +779,18 @@ class TestSequenceGeneration(unittest.TestCase):
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 2)
         
-        # First sequence: D#3 (51), A#2 (46), C4 (60)
+        # Now returns list of (midi, duration) tuples
         self.assertEqual(exercises[0][0], 'sequence')
-        self.assertEqual(exercises[0][1], (51, 46, 60))
+        self.assertEqual(len(exercises[0][1]), 3)
+        # First sequence: [(51, 1.0), (46, 1.0), (60, 1.0)]
+        self.assertEqual(exercises[0][1][0][0], 51)
+        self.assertEqual(exercises[0][1][1][0], 46)
+        self.assertEqual(exercises[0][1][2][0], 60)
         
-        # Second sequence: G3 (55), C4 (60)
+        # Second sequence: [(55, 1.0), (60, 1.0)]
         self.assertEqual(exercises[1][0], 'sequence')
-        self.assertEqual(exercises[1][1], (55, 60))
+        self.assertEqual(exercises[1][1][0][0], 55)
+        self.assertEqual(exercises[1][1][1][0], 60)
 
     def test_parse_sequences_abc_notation_basic(self):
         """Test parsing ABC notation sequences with bar lines."""
@@ -796,13 +801,19 @@ class TestSequenceGeneration(unittest.TestCase):
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 2)
         
-        # First sequence: D#3 (51), A#2 (46), C4 (60)
+        # First sequence: [(51, 1.0), (46, 1.0), (60, 1.0)]
         self.assertEqual(exercises[0][0], 'sequence')
-        self.assertEqual(exercises[0][1], (51, 46, 60))
+        notes1 = exercises[0][1]
+        self.assertEqual(notes1[0][0], 51)
+        self.assertEqual(notes1[1][0], 46)
+        self.assertEqual(notes1[2][0], 60)
         
-        # Second sequence: G3 (55), C4 (60), A4 (69), D3 (50)
-        self.assertEqual(exercises[1][0], 'sequence')
-        self.assertEqual(exercises[1][1], (55, 60, 69, 50))
+        # Second sequence: [(55, 1.0), (60, 1.0), (69, 1.0), (50, 1.0)]
+        notes2 = exercises[1][1]
+        self.assertEqual(notes2[0][0], 55)
+        self.assertEqual(notes2[1][0], 60)
+        self.assertEqual(notes2[2][0], 69)
+        self.assertEqual(notes2[3][0], 50)
 
     def test_parse_sequences_abc_multiple_bars(self):
         """Test ABC notation with multiple bars."""
@@ -814,25 +825,29 @@ class TestSequenceGeneration(unittest.TestCase):
         self.assertEqual(len(exercises), 2)
         
         # Bar lines should be stripped, notes extracted in order
-        self.assertEqual(exercises[0][1], (51, 46, 60, 60))
-        self.assertEqual(exercises[1][1], (55, 60, 69, 50))
+        notes1 = exercises[0][1]
+        self.assertEqual([n[0] for n in notes1], [51, 46, 60, 60])
+        
+        notes2 = exercises[1][1]
+        self.assertEqual([n[0] for n in notes2], [55, 60, 69, 50])
 
     def test_parse_sequences_single_note(self):
         """Test parsing single-note sequences."""
         sequences_cfg = ["C4", "D4", "E4"]
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 3)
-        self.assertEqual(exercises[0][1], (60,))
-        self.assertEqual(exercises[1][1], (62,))
-        self.assertEqual(exercises[2][1], (64,))
+        # Now returns list of tuples
+        self.assertEqual(exercises[0][1][0][0], 60)
+        self.assertEqual(exercises[1][1][0][0], 62)
+        self.assertEqual(exercises[2][1][0][0], 64)
 
     def test_parse_sequences_single_note_abc(self):
         """Test parsing ABC notation with single note."""
         sequences_cfg = ["|C4|", "|D4|"]
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 2)
-        self.assertEqual(exercises[0][1], (60,))
-        self.assertEqual(exercises[1][1], (62,))
+        self.assertEqual(exercises[0][1][0][0], 60)
+        self.assertEqual(exercises[1][1][0][0], 62)
 
     def test_parse_sequences_with_accidentals(self):
         """Test parsing sequences with sharps and flats."""
@@ -840,17 +855,21 @@ class TestSequenceGeneration(unittest.TestCase):
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 2)
         # C#3 = 49, Db4 = 61
-        self.assertEqual(exercises[0][1], (49, 61))
+        midi_notes1 = [n[0] for n in exercises[0][1]]
+        self.assertEqual(midi_notes1, [49, 61])
         # F#2 = 42, Gb3 = 54
-        self.assertEqual(exercises[1][1], (42, 54))
+        midi_notes2 = [n[0] for n in exercises[1][1]]
+        self.assertEqual(midi_notes2, [42, 54])
 
     def test_parse_sequences_abc_with_accidentals(self):
         """Test ABC notation with sharps and flats."""
         sequences_cfg = ["|C#3 Db4|", "|F#2 Gb3|"]
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 2)
-        self.assertEqual(exercises[0][1], (49, 61))
-        self.assertEqual(exercises[1][1], (42, 54))
+        midi_notes1 = [n[0] for n in exercises[0][1]]
+        self.assertEqual(midi_notes1, [49, 61])
+        midi_notes2 = [n[0] for n in exercises[1][1]]
+        self.assertEqual(midi_notes2, [42, 54])
 
     def test_parse_sequences_empty(self):
         """Test parsing empty sequence list."""
@@ -871,10 +890,17 @@ class TestSequenceGeneration(unittest.TestCase):
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         self.assertEqual(len(exercises), 4)
         # All should parse correctly despite whitespace differences
-        self.assertEqual(exercises[0][1], (51, 46, 60))
-        self.assertEqual(exercises[1][1], (55, 60))
-        self.assertEqual(exercises[2][1], (51, 46, 60))
-        self.assertEqual(exercises[3][1], (55, 60))
+        midi1 = [n[0] for n in exercises[0][1]]
+        self.assertEqual(midi1, [51, 46, 60])
+        
+        midi2 = [n[0] for n in exercises[1][1]]
+        self.assertEqual(midi2, [55, 60])
+        
+        midi3 = [n[0] for n in exercises[2][1]]
+        self.assertEqual(midi3, [51, 46, 60])
+        
+        midi4 = [n[0] for n in exercises[3][1]]
+        self.assertEqual(midi4, [55, 60])
 
     def test_sequence_type_in_exercises(self):
         """Test that parsed sequences have type 'sequence' (both formats)."""
@@ -882,15 +908,78 @@ class TestSequenceGeneration(unittest.TestCase):
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         for ex in exercises:
             self.assertEqual(ex[0], 'sequence')
-            self.assertIsInstance(ex[1], tuple)
+            self.assertIsInstance(ex[1], list)
+
+    def test_parse_abc_note_with_duration_basic(self):
+        """Test parsing ABC notes with duration modifiers."""
+        # C4 with default length 1.0 should be (60, 1.0)
+        result = trainer.parse_abc_note_with_duration("C4", 1.0)
+        self.assertEqual(result, (60, 1.0))
+        
+        # C42 should be double the length (2.0)
+        result = trainer.parse_abc_note_with_duration("C42", 1.0)
+        self.assertEqual(result, (60, 2.0))
+        
+        # C4/2 should be half the length (0.5)
+        result = trainer.parse_abc_note_with_duration("C4/2", 1.0)
+        self.assertEqual(result, (60, 0.5))
+        
+        # C4*2 should be double the length (2.0)
+        result = trainer.parse_abc_note_with_duration("C4*2", 1.0)
+        self.assertEqual(result, (60, 2.0))
+
+    def test_parse_abc_note_with_duration_accidentals(self):
+        """Test parsing ABC notes with accidentals and durations."""
+        # D#3 with default length
+        result = trainer.parse_abc_note_with_duration("D#3", 1.0)
+        self.assertEqual(result, (51, 1.0))
+        
+        # D#32 (double length)
+        result = trainer.parse_abc_note_with_duration("D#32", 1.0)
+        self.assertEqual(result, (51, 2.0))
+        
+        # Db3 with default length
+        result = trainer.parse_abc_note_with_duration("Db3", 1.0)
+        self.assertEqual(result, (49, 1.0))
+
+    def test_parse_abc_note_custom_unit_length(self):
+        """Test parsing with custom unit length (e.g., L:1/16)."""
+        # With L:1/16 (0.25), C42 should be 0.5 (quarter note = 0.25 * 2)
+        result = trainer.parse_abc_note_with_duration("C42", 0.25)
+        self.assertEqual(result, (60, 0.5))
+        
+        # C4/2 should be 0.125 (half of 0.25)
+        result = trainer.parse_abc_note_with_duration("C4/2", 0.25)
+        self.assertEqual(result, (60, 0.125))
+
+    def test_parse_abc_sequence_with_durations(self):
+        """Test parsing ABC notation with note durations."""
+        result = trainer.parse_abc_sequence("|C4 D42 E4|", 1.0)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 3)
+        
+        # First note: C4 (quarter note)
+        self.assertEqual(result[0], (60, 1.0))
+        
+        # Second note: D42 (half note, doubled)
+        self.assertEqual(result[1], (62, 2.0))
+        
+        # Third note: E4 (quarter note)
+        self.assertEqual(result[2], (64, 1.0))
 
     def test_parse_abc_sequence_helper(self):
-        """Test the parse_abc_sequence helper function directly."""
-        result = trainer.parse_abc_sequence("|D#3 A#2 C4|")
-        self.assertEqual(result, (51, 46, 60))
+        """Test the parse_abc_sequence helper function with durations."""
+        # New format returns list of (midi, duration) tuples
+        result = trainer.parse_abc_sequence("|C4 D42 E4|")
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result), 3)
         
-        result = trainer.parse_abc_sequence("|D#3 A#2 C4| C4 |")
-        self.assertEqual(result, (51, 46, 60, 60))
+        # Verify format
+        for item in result:
+            self.assertIsInstance(item, tuple)
+            self.assertEqual(len(item), 2)
+            self.assertIsInstance(item[0], int)  # MIDI number
+            self.assertIsInstance(item[1], float)  # Duration
 
     def test_parse_abc_sequence_invalid(self):
         """Test that invalid ABC sequences return None."""
@@ -899,6 +988,49 @@ class TestSequenceGeneration(unittest.TestCase):
         
         result = trainer.parse_abc_sequence("||")
         self.assertIsNone(result)
+
+    def test_parse_sequences_structured_format(self):
+        """Test parsing sequences with structured config (signature, L, notes)."""
+        sequences_cfg = {
+            'signature': '4/4',
+            'unit_length': 1.0,  # Use numeric unit_length for clarity
+            'notes': [
+                "|C4 D42 E4|",
+                "|G3 A3/2|"
+            ]
+        }
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        
+        # First sequence: C4 (1.0), D4 (2.0), E4 (1.0)
+        self.assertEqual(exercises[0][0], 'sequence')
+        notes1 = exercises[0][1]
+        self.assertEqual(len(notes1), 3)
+        self.assertEqual(notes1[0], (60, 1.0))
+        self.assertEqual(notes1[1], (62, 2.0))
+        self.assertEqual(notes1[2], (64, 1.0))
+        
+        # Second sequence: G3 (1.0), A3 (0.5)
+        notes2 = exercises[1][1]
+        self.assertEqual(len(notes2), 2)
+        self.assertEqual(notes2[0], (55, 1.0))
+        self.assertEqual(notes2[1], (57, 0.5))
+
+    def test_parse_sequences_structured_format_with_unit_length(self):
+        """Test structured config with numeric unit_length."""
+        sequences_cfg = {
+            'signature': '4/4',
+            'unit_length': 0.5,  # Half note as default
+            'notes': ["|C42|"]  # Doubled = 1.0
+        }
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 1)
+        
+        notes = exercises[0][1]
+        self.assertEqual(len(notes), 1)
+        # With unit_length=0.5, C42 should be 0.5 * 2 = 1.0
+        self.assertEqual(notes[0], (60, 1.0))
+
 
 
 if __name__ == '__main__':
