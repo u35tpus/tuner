@@ -22,9 +22,8 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-- Optionale Systemabhängigkeiten (für bessere Sound-Ausgabe):
-  - `fluidsynth` (für Rendering mit `.sf2` SoundFont)
-  - `ffmpeg` (für Konvertierung nach MP3/M4A aus WAV)
+- Externe Audio-Tools sind nicht erforderlich: Das Skript schreibt standardmäßig eine MIDI-Datei (`.mid`).
+  - Hinweise zu `fluidsynth` / `ffmpeg` aus älteren Versionen entfernt (Audio-Rendering wurde entfernt).
 
 macOS-Installation (Homebrew):
 
@@ -41,15 +40,15 @@ brew install fluidsynth ffmpeg
 python3 intonation_trainer.py config_template.yaml
 ```
 
-Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfiguration.
+Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfiguration (z. B. `Intonation_session_20251206_013323.mid`).
 
 **Wichtige Hinweis zu Lautstärke/Normalisierung**
 - Die Config enthält `normalize_lufs` als Hinweis — das Skript nimmt einfache Normalisierung vor. Für präzise LUFS-Normalisierung bitte `ffmpeg` oder spezialisierte Tools verwenden.
 
 **Konfigurationsdatei (`config_template.yaml`) — Wichtige Keys**
 - `output`:
-  - `filename`: Template für Ausgabe (z. B. `Intonation_{scale}_{date}.mp3`)
-  - `format`: `mp3` / `wav` / `m4a`
+  - `filename`: Template für Ausgabe (z. B. `Intonation_{scale}_{date}.mid`)
+  - `format`: (wird aktuell ignoriert — das Tool schreibt MIDI)
   - `normalize_lufs`: (optional) Ziel-LUFS (Hinweis)
 
 - `vocal_range`:
@@ -135,7 +134,7 @@ Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfigu
   - `config`: Pfad zur YAML-Konfigurationsdatei
 
 - Optionen:
-  - `--output`, `-o` : Überschreibt den Ausgabedateinamen. Beispiel: `--output my_session.mp3`
+  - `--output`, `-o` : Überschreibt den Ausgabedateinamen. Beispiel: `--output my_session.mid`
   - `--dry-run` : Erzeugt keine Audioausgabe, sondern schreibt stattdessen ein Text-Log der generierten Übungen (human-readable). Praktisch zum Review.
   - `--verbose` : Zusätzlich zur Audioausgabe immer ein Text-Log schreiben.
   - `--text-file` : Expliziter Pfad für das Text-Log (überschreibt Standardname). Wird mit `--dry-run` oder `--verbose` verwendet.
@@ -206,7 +205,7 @@ python3 intonation_trainer.py config_template.yaml
 
 ```bash
 . .venv/bin/activate
-python3 intonation_trainer.py config_template.yaml --from-text test_3min.txt --output from_text_session.mp3
+python3 intonation_trainer.py config_template.yaml --from-text test_3min.txt --output from_text_session.mid
 ```
 
 5) Expliziter Output-Name & verbose Log
@@ -216,7 +215,7 @@ python3 intonation_trainer.py config_template.yaml --from-text test_3min.txt --o
 python3 intonation_trainer.py config_template.yaml --output my_session --verbose
 ```
 
-(Gibt `my_session.mp3` aus und schreibt `my_session.txt` mit den einzelnen Übungen.)
+(Gibt `my_session.mid` aus und schreibt `my_session.txt` mit den einzelnen Übungen.)
 
 **Text-Log Format**
 - Das Text-Log ist für Menschen lesbar und enthält Einträge wie:
@@ -231,7 +230,7 @@ python3 intonation_trainer.py config_template.yaml --output my_session --verbose
 **Troubleshooting & Hinweise**
 - Wenn `fluidsynth` und ein SoundFont (`.sf2`) vorhanden sind, nutzt das Skript `fluidsynth` zur MIDI-zu-WAV-Konvertierung. Pfad zu `.sf2` wird von `sound.soundfont_path` in der YAML gesteuert.
 - Falls `fluidsynth` nicht vorhanden ist oder das Rendering fehlschlägt, fällt das Skript auf einen eingebauten WAV-Synth zurück (mehrere reine Sinustöne, mono).
-- Für MP3/M4A-Konvertierung aus WAV installiertes `ffmpeg` ist empfehlenswert. Ohne `ffmpeg` wird nur WAV erzeugt.
+-- Audio-Rendering/MP3-Konvertierung wurde entfernt; das Tool erzeugt nur MIDI-Dateien. Externe Tools wie `ffmpeg` oder `fluidsynth` sind nicht mehr benötigt.
 - `pydub` ist optional; bei manchen Python-Builds fehlen native Extensions (z. B. `audioop`) — dann verwendet das Skript die reine-Numpy/WAV-Pipeline.
 
 **Weiteres / Entwicklung**

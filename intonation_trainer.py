@@ -769,6 +769,12 @@ def main():
             session_midi_path = base + '.mid'
             session_mid.save(session_midi_path)
             print(f'Wrote session MIDI to {session_midi_path}')
+            # Audio rendering removed: this tool now produces MIDI files only.
+            # Skip the rest of the audio rendering pipeline (fluidsynth/ffmpeg/pydub).
+            if not args.verbose:
+                # If user did not request verbose text log, exit now after writing MIDI
+                return
+            # If verbose requested, fall through to write the text log and then exit
         except Exception as e:
             print(f'Warning: failed to write session MIDI: {e}')
 
