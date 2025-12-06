@@ -1,8 +1,11 @@
 # Intonation Trainer
 
+[![Run Tests](https://github.com/u35tpus/tuner/actions/workflows/tests.yml/badge.svg)](https://github.com/u35tpus/tuner/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/u35tpus/tuner/branch/main/graph/badge.svg)](https://codecov.io/gh/u35tpus/tuner)
+
 Ein Python-CLI-Tool zur Erzeugung von Skalen-basierten Intervallen und Dreiklängen mit Audioausgabe.
 
-Dieses Repository enthält das Skript `intonation_trainer.py`, eine Beispielkonfiguration `config_template.yaml` und ein Verzeichnis `piano/` mit einem kostenlosen SoundFont (Salamander Grand Piano). Das Skript kann MIDI/Audio über FluidSynth + SoundFont rendern oder — falls nicht verfügbar — ein einfaches, reines-Python WAV-Synthesizer-Fallback verwenden.
+Dieses Repository enthält das Skript `intonation_trainer.py`, eine Beispielkonfiguration `config_template.yaml` und ein Verzeichnis `piano/` mit einem kostenlosen SoundFont (Salamander Grand Piano). Das Skript erzeugt MIDI-Dateien (`.mid`) für Trainingsübungen mit Intervallen, Dreiklängen und benutzerdefinierten Notensequenzen.
 
 **Inhalt**
 - **Installation**: Virtualenv, Abhängigkeiten
