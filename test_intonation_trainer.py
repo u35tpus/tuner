@@ -768,10 +768,10 @@ class TestRepetitionsPerExercise(unittest.TestCase):
 
 
 class TestSequenceGeneration(unittest.TestCase):
-    """Test note sequence parsing and generation."""
+    """Test note sequence parsing and generation (comma-separated and ABC notation)."""
 
-    def test_parse_sequences_basic(self):
-        """Test parsing basic note sequences."""
+    def test_parse_sequences_comma_separated_basic(self):
+        """Test parsing basic comma-separated note sequences."""
         sequences_cfg = [
             "D#3, A#2, C4",
             "G3, C4",
@@ -787,6 +787,36 @@ class TestSequenceGeneration(unittest.TestCase):
         self.assertEqual(exercises[1][0], 'sequence')
         self.assertEqual(exercises[1][1], (55, 60))
 
+    def test_parse_sequences_abc_notation_basic(self):
+        """Test parsing ABC notation sequences with bar lines."""
+        sequences_cfg = [
+            "|D#3 A#2 C4|",
+            "|G3 C4 A4 D3|",
+        ]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        
+        # First sequence: D#3 (51), A#2 (46), C4 (60)
+        self.assertEqual(exercises[0][0], 'sequence')
+        self.assertEqual(exercises[0][1], (51, 46, 60))
+        
+        # Second sequence: G3 (55), C4 (60), A4 (69), D3 (50)
+        self.assertEqual(exercises[1][0], 'sequence')
+        self.assertEqual(exercises[1][1], (55, 60, 69, 50))
+
+    def test_parse_sequences_abc_multiple_bars(self):
+        """Test ABC notation with multiple bars."""
+        sequences_cfg = [
+            "|D#3 A#2 C4| C4 |",
+            "|G3 C4| A4 D3 |",
+        ]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        
+        # Bar lines should be stripped, notes extracted in order
+        self.assertEqual(exercises[0][1], (51, 46, 60, 60))
+        self.assertEqual(exercises[1][1], (55, 60, 69, 50))
+
     def test_parse_sequences_single_note(self):
         """Test parsing single-note sequences."""
         sequences_cfg = ["C4", "D4", "E4"]
@@ -795,6 +825,14 @@ class TestSequenceGeneration(unittest.TestCase):
         self.assertEqual(exercises[0][1], (60,))
         self.assertEqual(exercises[1][1], (62,))
         self.assertEqual(exercises[2][1], (64,))
+
+    def test_parse_sequences_single_note_abc(self):
+        """Test parsing ABC notation with single note."""
+        sequences_cfg = ["|C4|", "|D4|"]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        self.assertEqual(exercises[0][1], (60,))
+        self.assertEqual(exercises[1][1], (62,))
 
     def test_parse_sequences_with_accidentals(self):
         """Test parsing sequences with sharps and flats."""
@@ -806,6 +844,14 @@ class TestSequenceGeneration(unittest.TestCase):
         # F#2 = 42, Gb3 = 54
         self.assertEqual(exercises[1][1], (42, 54))
 
+    def test_parse_sequences_abc_with_accidentals(self):
+        """Test ABC notation with sharps and flats."""
+        sequences_cfg = ["|C#3 Db4|", "|F#2 Gb3|"]
+        exercises = trainer.parse_sequences_from_config(sequences_cfg)
+        self.assertEqual(len(exercises), 2)
+        self.assertEqual(exercises[0][1], (49, 61))
+        self.assertEqual(exercises[1][1], (42, 54))
+
     def test_parse_sequences_empty(self):
         """Test parsing empty sequence list."""
         exercises = trainer.parse_sequences_from_config(None)
@@ -815,25 +861,46 @@ class TestSequenceGeneration(unittest.TestCase):
         self.assertEqual(len(exercises), 0)
 
     def test_parse_sequences_whitespace_handling(self):
-        """Test that whitespace is properly handled in sequences."""
+        """Test that whitespace is properly handled in both formats."""
         sequences_cfg = [
-            "  D#3  ,  A#2  ,  C4  ",  # Extra spaces
+            "  D#3  ,  A#2  ,  C4  ",  # Extra spaces in comma-separated
             "G3,C4",  # No spaces
+            "|  D#3  A#2  C4  |",  # Extra spaces in ABC
+            "|G3 C4|",  # Normal ABC
         ]
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
-        self.assertEqual(len(exercises), 2)
-        # Both should parse correctly despite whitespace differences
+        self.assertEqual(len(exercises), 4)
+        # All should parse correctly despite whitespace differences
         self.assertEqual(exercises[0][1], (51, 46, 60))
         self.assertEqual(exercises[1][1], (55, 60))
+        self.assertEqual(exercises[2][1], (51, 46, 60))
+        self.assertEqual(exercises[3][1], (55, 60))
 
     def test_sequence_type_in_exercises(self):
-        """Test that parsed sequences have type 'sequence'."""
-        sequences_cfg = ["C4, E4, G4"]
+        """Test that parsed sequences have type 'sequence' (both formats)."""
+        sequences_cfg = ["C4, E4, G4", "|C4 E4 G4|"]
         exercises = trainer.parse_sequences_from_config(sequences_cfg)
         for ex in exercises:
             self.assertEqual(ex[0], 'sequence')
             self.assertIsInstance(ex[1], tuple)
 
+    def test_parse_abc_sequence_helper(self):
+        """Test the parse_abc_sequence helper function directly."""
+        result = trainer.parse_abc_sequence("|D#3 A#2 C4|")
+        self.assertEqual(result, (51, 46, 60))
+        
+        result = trainer.parse_abc_sequence("|D#3 A#2 C4| C4 |")
+        self.assertEqual(result, (51, 46, 60, 60))
+
+    def test_parse_abc_sequence_invalid(self):
+        """Test that invalid ABC sequences return None."""
+        result = trainer.parse_abc_sequence("|invalid notes|")
+        self.assertIsNone(result)
+        
+        result = trainer.parse_abc_sequence("||")
+        self.assertIsNone(result)
+
 
 if __name__ == '__main__':
     unittest.main()
+

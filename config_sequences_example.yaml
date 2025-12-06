@@ -4,13 +4,13 @@ output:
   normalize_lufs: -16
 
 # When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
-# Each sequence is a comma-separated list of note names.
+# Each sequence can be specified in ABC notation with bar lines (|) and space-separated notes.
 sequences:
-  - D#3, A#2, C4
-  - G3, C4
-  - G3, C4, A4, D3
-  - A#2, C4, F3
-  - G#2, C4, E3
+  - "|D#3 A#2 C4| C4 |"
+  - "|G3 C4| A4 D3 |"
+  - "|A#2 C4 F3| G#2 |"
+  - "|G3 C4 A4 D3| E3 |"
+  - "|G#2 C4 E3| F#3 D#3 |"
 
 timing:
   note_duration: 1.0

@@ -159,10 +159,36 @@ def parse_yaml(path: str) -> dict:
         return yaml.safe_load(f)
 
 
+def parse_abc_sequence(abc_str):
+    """Parse ABC notation sequence into tuple of MIDI note numbers.
+    
+    ABC format: |D#3 A#2 C4| or |D#3 A#2 C4 C4| G3 C4 A4 D3 |
+    Pipes (|) mark bar lines and are ignored.
+    Notes are space-separated within bars.
+    Returns tuple of MIDI numbers or None if parsing fails.
+    """
+    # Remove all bar line characters
+    abc_str = abc_str.replace('|', ' ')
+    # Split by whitespace and filter empty strings
+    note_names = [n.strip() for n in abc_str.split() if n.strip()]
+    
+    if not note_names:
+        return None
+    
+    try:
+        notes = tuple(note_name_to_midi(n) for n in note_names)
+        return notes
+    except Exception:
+        return None
+
+
 def parse_sequences_from_config(sequences_cfg):
     """Parse sequences from config and return list of exercises.
     
-    Each sequence is a comma-separated string of note names.
+    Supports two formats:
+    1. Comma-separated notes: "D#3, A#2, C4"
+    2. ABC notation with bar lines: "|D#3 A#2 C4|" or "|D#3 A#2 C4 C4| G3 C4 A4 D3 |"
+    
     Returns list of ('sequence', tuple_of_midi_notes) exercises.
     """
     exercises = []
@@ -170,13 +196,22 @@ def parse_sequences_from_config(sequences_cfg):
         return exercises
     
     for seq_str in sequences_cfg:
-        # Split by comma and strip whitespace
-        note_names = [n.strip() for n in seq_str.split(',')]
-        try:
-            notes = tuple(note_name_to_midi(n) for n in note_names)
-            exercises.append(('sequence', notes))
-        except Exception as e:
-            print(f'Warning: Could not parse sequence "{seq_str}": {e}')
+        # Detect format: if contains pipe (|), treat as ABC; else as comma-separated
+        if '|' in seq_str:
+            # ABC format
+            notes = parse_abc_sequence(seq_str)
+            if notes:
+                exercises.append(('sequence', notes))
+            else:
+                print(f'Warning: Could not parse ABC sequence "{seq_str}"')
+        else:
+            # Comma-separated format (backward compatible)
+            note_names = [n.strip() for n in seq_str.split(',')]
+            try:
+                notes = tuple(note_name_to_midi(n) for n in note_names)
+                exercises.append(('sequence', notes))
+            except Exception as e:
+                print(f'Warning: Could not parse sequence "{seq_str}": {e}')
     
     return exercises
 
