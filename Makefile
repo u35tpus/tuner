@@ -1,4 +1,4 @@
-.PHONY: help test test-verbose test-integration test-unit venv install clean run run-demo
+.PHONY: help test test-verbose test-integration test-unit venv install clean run run-demo coverage
 
 help:
 	@echo "Intonation Trainer - Makefile targets"
@@ -12,6 +12,7 @@ help:
 	@echo "  make test-verbose  Run all unit tests with verbose output"
 	@echo "  make test-unit     Run only unit tests (not integration)"
 	@echo "  make test-integration Run only integration tests"
+	@echo "  make coverage      Run tests and display coverage report"
 	@echo ""
 	@echo "Running:"
 	@echo "  make run           Run trainer with config_template.yaml (requires venv)"
@@ -41,6 +42,12 @@ test-unit:
 
 test-integration:
 	python3 -m unittest test_integration test_intonation_trainer.TestIntegration test_intonation_trainer.TestSessionMIDIGeneration -v
+
+coverage:
+	coverage run -m unittest discover -s . -p "test_*.py" -q
+	coverage report -m
+	coverage html
+	@echo "Coverage report generated in htmlcov/index.html"
 
 run:
 	python3 intonation_trainer.py config_template.yaml --verbose
