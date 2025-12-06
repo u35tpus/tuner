@@ -13,3 +13,4 @@ logs/
 drylog.txt
 *.mid
 *.txt
+.coverage
