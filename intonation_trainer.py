@@ -747,7 +747,14 @@ def main():
                     # rest between exercises
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
                 elif ex[0] == 'sequence':
-                    notes = [int(n) for n in ex[1]]
+                    # ex[1] may be either a sequence of MIDI ints (old format)
+                    # or a sequence of (midi, duration) tuples (new ABC format).
+                    seq = ex[1]
+                    if seq and isinstance(seq[0], tuple):
+                        # Extract MIDI numbers only for the session overview MIDI
+                        notes = [int(n) for n, _d in seq]
+                    else:
+                        notes = [int(n) for n in seq]
                     # Play notes consecutively with no pause between them
                     for i, n in enumerate(notes):
                         track.append(Message('note_on', note=n, velocity=velocity, time=0))
