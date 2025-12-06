@@ -1,0 +1,37 @@
+output:
+  filename: "Sequences_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+# When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
+# Sequences use ABC notation with optional note durations.
+# Note duration suffix examples: "C4" (default), "C42" (double length), "C4/2" (half length)
+# L (unit_length): Base duration for notes (default 1.0 = quarter note)
+sequences:
+  signature: "4/4"
+  unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
+  notes:
+    - "|C4 D42 E4 F4|"      # C, D (double), E, F quarter notes in 4/4
+    - "|G3 C4 A4/2 D3|"     # G, C quarter notes, A eighth note, D quarter
+    - "|A#2 C4 F3 G#2|"     # All quarter notes
+    - "|G3 C4 A4 D3 E3|"    # 5 quarter notes
+    - "|G#2 C4 E3 F#3 D#3|" # 5 quarter notes
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 4.0
+  intro_beats: 4
+  intro_bpm: 120
+
+# How many times each sequence should be repeated consecutively
+repetitions_per_exercise: 3
+random_seed: null
+
+# Session duration limit in seconds (default 600 = 10 minutes)
+max_duration: 600
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90

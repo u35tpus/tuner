@@ -31,51 +31,7 @@ except Exception:
     print("Missing dependency 'pyyaml'. Install with: pip install pyyaml")
     raise
 
-# Try to import pydub for convenient audio handling. If it's missing or
-# the system Python lacks the native audioop extension (some macOS builds),
-# fall back to a pure-WAV pipeline implemented with `wave` + `numpy`.
-PYDUB_AVAILABLE = False
-try:
-    from pydub import AudioSegment, effects
-    PYDUB_AVAILABLE = True
-except Exception:
-    PYDUB_AVAILABLE = False
-
-# Fallback helpers (used when pydub is not available)
-def read_wav_mono(path):
-    with wave.open(path, 'rb') as wf:
-        sr = wf.getframerate()
-        nchan = wf.getnchannels()
-        frames = wf.readframes(wf.getnframes())
-        arr = np.frombuffer(frames, dtype=np.int16)
-        if nchan > 1:
-            arr = arr.reshape(-1, nchan).mean(axis=1).astype(np.int16)
-        return arr, sr
-
-
-def write_wav_mono(path, arr, sr=44100):
-    # arr: numpy int16
-    with wave.open(path, 'w') as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(sr)
-        wf.writeframes(arr.tobytes())
-
-
-def make_silence_ms(ms, sr=44100):
-    length = int(sr * (ms / 1000.0))
-    return np.zeros(length, dtype=np.int16)
-
-
-def normalize_int16(arr):
-    if arr.size == 0:
-        return arr
-    maxv = np.max(np.abs(arr.astype(np.int32)))
-    if maxv == 0:
-        return arr
-    factor = 32767.0 / maxv
-    out = (arr.astype(np.float32) * factor).clip(-32767, 32767).astype(np.int16)
-    return out
+# Audio rendering has been removed; this tool produces MIDI files only.
 
 
 try:
@@ -157,6 +113,155 @@ def expand_scale_over_range(scale_root_midi: int, scale_type: str, low_m: int, h
 def parse_yaml(path: str) -> dict:
     with open(path, 'r', encoding='utf8') as f:
         return yaml.safe_load(f)
+
+
+def parse_abc_note_with_duration(note_str, default_length=1.0):
+    """Parse ABC note string with optional duration suffix.
+    
+    Examples:
+      "C4" -> (60, 1.0)  [quarter note at default length]
+      "C4/2" -> (60, 0.5)  [eighth note, half the length]
+      "C4*2" or "C42" -> (60, 2.0)  [half note, double the length]
+      "G#3" -> (56, 1.0)
+    
+    Args:
+        note_str: String like "C4", "C42", "C4/2", "G#3*2"
+        default_length: Base unit length in beats (typically 1.0 for quarter note)
+    
+    Returns:
+        Tuple (midi_number, duration_in_beats) or None if parsing fails
+    """
+    import re
+    note_str = note_str.strip()
+    
+    # Extract note name and optional length modifier
+    # Pattern: letter + optional accidental + single digit octave + optional length
+    # Examples: C4, C#4, Db4, C42, C4/2, C4*2
+    match = re.match(r'^([A-G][#b]?)(\d)([\d/\*]*)$', note_str)
+    if not match:
+        return None
+    
+    note_name_part = match.group(1) + match.group(2)  # e.g., "C#4"
+    length_part = match.group(3)  # e.g., "2" or "/2" or "*2"
+    
+    try:
+        midi = note_name_to_midi(note_name_part)
+    except Exception:
+        return None
+    
+    # Parse length modifier
+    duration = default_length
+    if length_part:
+        if length_part.startswith('/'):
+            # Division: /2 means half duration
+            divisor = float(length_part[1:])
+            duration = default_length / divisor
+        elif length_part.startswith('*'):
+            # Multiplication: *2 means double duration
+            multiplier = float(length_part[1:])
+            duration = default_length * multiplier
+        else:
+            # Direct multiplier: "2" means 2x length (ABC standard notation)
+            multiplier = float(length_part)
+            duration = default_length * multiplier
+    
+    return (midi, duration)
+
+
+def parse_abc_sequence(abc_str, default_length=1.0):
+    """Parse ABC notation sequence with durations into list of (midi, duration) tuples.
+    
+    ABC format: |D#3 A#2 C4| C4 |  or  |C4 D42 E4/2 F4|
+    Pipes (|) mark bar lines and are ignored.
+    Notes are space-separated within bars.
+    Default length (L) can be specified (e.g., 1.0 = quarter note).
+    
+    Args:
+        abc_str: ABC notation string (e.g., "|C4 D42 E4|")
+        default_length: Unit length in beats (default 1.0 for quarter note)
+    
+    Returns:
+        List of (midi_number, duration) tuples, or None if parsing fails
+    """
+    # Remove all bar line characters
+    abc_str = abc_str.replace('|', ' ')
+    # Split by whitespace and filter empty strings
+    note_strs = [n.strip() for n in abc_str.split() if n.strip()]
+    
+    if not note_strs:
+        return None
+    
+    notes_with_durations = []
+    for note_str in note_strs:
+        parsed = parse_abc_note_with_duration(note_str, default_length)
+        if parsed is None:
+            return None  # Fail if any note cannot be parsed
+        notes_with_durations.append(parsed)
+    
+    return notes_with_durations
+
+
+def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
+    """Parse sequences from config and return list of exercises.
+    
+    Supports multiple formats:
+    1. Comma-separated notes (old): "D#3, A#2, C4"
+    2. ABC notation (simple): "|D#3 A#2 C4|"
+    3. ABC notation with durations: "|C4 D42 E4/2|" (requires default_unit_length)
+    4. Full structure with signature, L, notes:
+       sequences:
+         signature: "4/4"
+         unit_length: 0.25  # or L: 1/4
+         notes: ["|C4 D42|", "..."]
+    
+    Returns list of ('sequence', notes_with_durations) exercises.
+    notes_with_durations is list of (midi, duration) tuples.
+    """
+    exercises = []
+    if not sequences_cfg:
+        return exercises
+    
+    # Handle structured format (dict with signature, L, notes)
+    if isinstance(sequences_cfg, dict):
+        notes_list = sequences_cfg.get('notes', [])
+        unit_length_val = sequences_cfg.get('unit_length', 1.0)
+        
+        # Also support 'L' format (e.g., "1/4" -> 0.25)
+        if 'L' in sequences_cfg:
+            L_str = sequences_cfg['L']
+            if isinstance(L_str, str) and '/' in L_str:
+                parts = L_str.split('/')
+                unit_length_val = float(parts[0]) / float(parts[1])
+        
+        for seq_str in notes_list:
+            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val)
+            if notes_with_dur:
+                exercises.append(('sequence', notes_with_dur))
+            else:
+                print(f'Warning: Could not parse ABC sequence "{seq_str}"')
+        return exercises
+    
+    # Handle list format (simple strings, backward compatible)
+    for seq_str in sequences_cfg:
+        # Detect format: if contains pipe (|), treat as ABC; else as comma-separated
+        if '|' in seq_str:
+            # ABC format (with optional durations)
+            notes_with_dur = parse_abc_sequence(seq_str, default_unit_length)
+            if notes_with_dur:
+                exercises.append(('sequence', notes_with_dur))
+            else:
+                print(f'Warning: Could not parse ABC sequence "{seq_str}"')
+        else:
+            # Comma-separated format (backward compatible, no durations)
+            note_names = [n.strip() for n in seq_str.split(',')]
+            try:
+                notes = [(note_name_to_midi(n), default_unit_length) for n in note_names]
+                exercises.append(('sequence', notes))
+            except Exception as e:
+                print(f'Warning: Could not parse sequence "{seq_str}": {e}')
+    
+    return exercises
+
 
 
 # ---------------------- Exercise generation ---------------------------
@@ -253,13 +358,7 @@ def generate_triads(scale_notes_single_octave_midi, pool_notes, include_inversio
 
 # ---------------------- Audio rendering -------------------------------
 
-def render_midi_to_wav(midi_path: str, sf2_path: str, out_wav: str, sample_rate=44100):
-    fluidsynth = shutil.which('fluidsynth')
-    if not fluidsynth:
-        return False
-    cmd = [fluidsynth, '-ni', sf2_path, midi_path, '-F', out_wav, '-r', str(sample_rate)]
-    subprocess.check_call(cmd)
-    return True
+# Audio rendering via external tools removed. MIDI-only output maintained.
 
 
 def write_midi_for_exercise(events, midi_path, tempo_bpm=120, channel=0):
@@ -294,6 +393,64 @@ def synth_simple_wav(notes, duration, out_wav, sample_rate=44100, velocity=90):
         wf.writeframes(audio.tobytes())
 
 
+def make_silence_ms(ms, sr=44100):
+    """Return a numpy int16 array of silence for given milliseconds at sample rate sr."""
+    n = int(sr * (ms / 1000.0))
+    return np.zeros(n, dtype=np.int16)
+
+
+def normalize_int16(arr):
+    """Normalize an array to int16 amplitude range [-32767,32767].
+
+    If `arr` is already int16, scale it so the maximum absolute value becomes 32767.
+    If `arr` is float, scale by its max absolute value and convert to int16.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        return a.astype(np.int16)
+    if a.dtype == np.int16:
+        mx = np.max(np.abs(a))
+        if mx == 0:
+            return a
+        scale = 32767.0 / float(mx)
+        out = (a.astype(np.float64) * scale).astype(np.int16)
+        return out
+    else:
+        mx = np.max(np.abs(a))
+        if mx == 0:
+            return a.astype(np.int16)
+        scaled = a.astype(np.float64) / mx * 32767.0
+        return scaled.astype(np.int16)
+
+
+def write_wav_mono(path, arr, sr=44100):
+    """Write a mono int16 numpy array to a WAV file."""
+    a = np.asarray(arr)
+    if a.dtype != np.int16:
+        a = normalize_int16(a)
+    with wave.open(path, 'w') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(int(sr))
+        wf.writeframes(a.tobytes())
+
+
+def read_wav_mono(path):
+    """Read a mono WAV file and return (numpy int16 array, sample_rate)."""
+    with wave.open(path, 'rb') as wf:
+        channels = wf.getnchannels()
+        sampwidth = wf.getsampwidth()
+        sr = wf.getframerate()
+        frames = wf.readframes(wf.getnframes())
+    if sampwidth != 2:
+        raise RuntimeError('Unsupported sample width')
+    arr = np.frombuffer(frames, dtype=np.int16)
+    if channels > 1:
+        # Reduce to mono by taking first channel
+        arr = arr[::channels]
+    return arr, sr
+
+
 # ---------------------- Main program ---------------------------------
 
 def main():
@@ -326,7 +483,7 @@ def main():
         name = names[pc]
         return f"{name}{octave}"
 
-    def write_text_log(path: str, exercises_list):
+    def write_text_log(path: str, exercises_list, ticks_per_beat: int = None):
         with open(path, 'w', encoding='utf8') as f:
             f.write(f"Intonation Trainer Log\n")
             f.write(f"Scale: {scale_name}\n")
@@ -339,6 +496,26 @@ def main():
                     notes = ex[1]
                     names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
                     f.write(f"{i:04d}: TRIAD     {names}\n")
+                elif ex[0] == 'sequence':
+                    notes_with_dur = ex[1]
+                    # Handle both old format (just MIDI numbers) and new format (with durations)
+                    if notes_with_dur and isinstance(notes_with_dur[0], tuple):
+                        # New format: list of (midi, duration) tuples
+                        # Include duration in beats and ticks
+                        if ticks_per_beat is None:
+                            ticks_per_beat = 480
+                        parts = []
+                        for n, d in notes_with_dur:
+                            name = midi_to_note_name(n)
+                            midi_num = int(n)
+                            beats = float(d)
+                            ticks = int(beats * ticks_per_beat)
+                            parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                        names = ' '.join(parts)
+                    else:
+                        # Old format: just MIDI numbers
+                        names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes_with_dur])
+                    f.write(f"{i:04d}: SEQUENCE  {names}\n")
                 else:
                     f.write(f"{i:04d}: UNKNOWN   {ex}\n")
         print(f'Wrote text log to {path}')
@@ -391,32 +568,17 @@ def main():
     lowest = note_name_to_midi(vocal.get('lowest_note', 'A3'))
     highest = note_name_to_midi(vocal.get('highest_note', 'A4'))
 
-    scale_cfg = cfg.get('scale', {})
-    if 'notes' in scale_cfg and scale_cfg['notes']:
-        custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
-        pool = [n for n in custom_notes if lowest <= n <= highest]
-        scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
-    else:
-        root = note_name_to_midi(scale_cfg.get('root', 'A3'))
-        stype = scale_cfg.get('type', 'natural_minor')
-        pool = expand_scale_over_range(root, stype, lowest, highest)
-        scale_single_octave = build_scale_notes(root, stype)
-
-    content = cfg.get('content', {})
-    intervals_cfg = content.get('intervals', {})
-    triads_cfg = content.get('triads', {})
-
-    max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
-    max_interval = 12
-    include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
-    ascending = intervals_cfg.get('ascending', True)
-    descending = intervals_cfg.get('descending', True)
-
     repetitions = cfg.get('repetitions_per_exercise', 10)
     seed = cfg.get('random_seed', None)
     if seed is not None:
         random.seed(seed)
 
+    # Check if sequences are specified in config
+    sequences_cfg = cfg.get('sequences', None)
+    
+    # Set default scale_name that will be used in output filename
+    scale_name = 'session'
+    
     # If --from-text is provided, load exercises from text file instead of generating
     if args.from_text:
         exercises = parse_text_log(args.from_text)
@@ -424,8 +586,38 @@ def main():
             print(f'No exercises loaded from {args.from_text}. Exiting.')
             return
         print(f'Loaded {len(exercises)} exercises from {args.from_text}')
+    elif sequences_cfg:
+        # Use explicit note sequences if provided
+        exercises = parse_sequences_from_config(sequences_cfg)
+        if not exercises:
+            print('No valid sequences found in config. Exiting.')
+            return
+        print(f'Loaded {len(exercises)} sequences from config')
     else:
-        # Normal mode: generate exercises from config
+        # Normal mode: generate exercises from scale and content
+        scale_cfg = cfg.get('scale', {})
+        scale_name = scale_cfg.get('name', 'scale')
+        if 'notes' in scale_cfg and scale_cfg['notes']:
+            custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
+            pool = [n for n in custom_notes if lowest <= n <= highest]
+            scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
+        else:
+            root = note_name_to_midi(scale_cfg.get('root', 'A3'))
+            stype = scale_cfg.get('type', 'natural_minor')
+            pool = expand_scale_over_range(root, stype, lowest, highest)
+            scale_single_octave = build_scale_notes(root, stype)
+
+        content = cfg.get('content', {})
+        intervals_cfg = content.get('intervals', {})
+        triads_cfg = content.get('triads', {})
+
+        max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
+        max_interval = 12
+        include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
+        ascending = intervals_cfg.get('ascending', True)
+        descending = intervals_cfg.get('descending', True)
+
+        # Generate exercises from config
         exercises = []
         exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
         if triads_cfg.get('enabled', True):
@@ -516,7 +708,6 @@ def main():
         print()
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    scale_name = scale_cfg.get('name', 'scale')
     out_name = args.output or fname_template.format(scale=scale_name.replace(' ', '_'), date=timestamp)
 
     tmpdir = tempfile.mkdtemp(prefix='intonation_')
@@ -573,6 +764,26 @@ def main():
                         track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
                     # rest between exercises
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+                elif ex[0] == 'sequence':
+                    # ex[1] may be either a sequence of MIDI ints (old format)
+                    # or a sequence of (midi, duration) tuples (new ABC format).
+                    seq = ex[1]
+                    # Play notes consecutively; respect per-note durations when provided.
+                    if seq and isinstance(seq[0], tuple):
+                        # New format: list of (midi, duration) tuples
+                        for midi_note, dur in seq:
+                            midi_note = int(midi_note)
+                            ticks = secs_to_ticks(dur)
+                            track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
+                            track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
+                    else:
+                        # Old format: list of MIDI ints, use default note_dur
+                        notes = [int(n) for n in seq]
+                        for n in notes:
+                            track.append(Message('note_on', note=n, velocity=velocity, time=0))
+                            track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
+                    # rest between exercises
+                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
                 else:
                     # unknown entry: skip with a small rest
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
@@ -581,139 +792,23 @@ def main():
             session_midi_path = base + '.mid'
             session_mid.save(session_midi_path)
             print(f'Wrote session MIDI to {session_midi_path}')
+            # Audio rendering removed: this tool now produces MIDI files only.
+            # Skip the rest of the audio rendering pipeline (fluidsynth/ffmpeg/pydub).
+            if not args.verbose:
+                # If user did not request verbose text log, exit now after writing MIDI
+                return
+            # If verbose requested, fall through to write the text log and then exit
         except Exception as e:
             print(f'Warning: failed to write session MIDI: {e}')
 
     try:
-        sf_cfg = cfg.get('sound', {})
-        method = sf_cfg.get('method', 'soundfont')
-        sf2_path = sf_cfg.get('soundfont_path', 'piano/SalamanderGrandPiano.sf2')
-        velocity = sf_cfg.get('velocity', 90)
-
-        for idx, ex in enumerate(final_list):
-            typ = ex[0]
-            out_wav = os.path.join(tmpdir, f'ex_{idx:04d}.wav')
-            if typ == 'interval':
-                a, b = ex[1], ex[2]
-                midi_path = os.path.join(tmpdir, f'ex_{idx:04d}.mid')
-                mid = MidiFile()
-                track = MidiTrack()
-                mid.tracks.append(track)
-                tempo_bpm = cfg.get('timing', {}).get('intro_bpm', 120)
-                track.append(mido.MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
-                track.append(Message('note_on', note=int(a), velocity=velocity, time=0))
-                dur = cfg.get('timing', {}).get('note_duration', 1.8)
-                ticks = int(mid.ticks_per_beat * (dur * tempo_bpm / 60.0))
-                track.append(Message('note_off', note=int(a), velocity=0, time=ticks))
-                track.append(Message('note_on', note=int(b), velocity=velocity, time=0))
-                track.append(Message('note_off', note=int(b), velocity=0, time=ticks))
-                mid.save(midi_path)
-                rendered = False
-                if method == 'soundfont' and os.path.exists(sf2_path):
-                    try:
-                        rendered = render_midi_to_wav(midi_path, sf2_path, out_wav)
-                    except Exception:
-                        rendered = False
-                if not rendered:
-                    a_wav = os.path.join(tmpdir, f'a_{idx}.wav')
-                    b_wav = os.path.join(tmpdir, f'b_{idx}.wav')
-                    synth_simple_wav([a], dur, a_wav)
-                    synth_simple_wav([b], dur, b_wav)
-                    if PYDUB_AVAILABLE:
-                        seg = AudioSegment.from_wav(a_wav) + AudioSegment.silent(duration=100) + AudioSegment.from_wav(b_wav)
-                        seg.export(out_wav, format='wav')
-                    else:
-                        arr_a, sr = read_wav_mono(a_wav)
-                        arr_b, sr2 = read_wav_mono(b_wav)
-                        silence = make_silence_ms(100, sr)
-                        combined = np.concatenate([arr_a, silence, arr_b])
-                        combined = normalize_int16(combined)
-                        write_wav_mono(out_wav, combined, sr)
-            elif typ == 'triad':
-                notes = list(ex[1])
-                midi_path = os.path.join(tmpdir, f'ex_{idx:04d}.mid')
-                mid = MidiFile()
-                track = MidiTrack()
-                mid.tracks.append(track)
-                tempo_bpm = cfg.get('timing', {}).get('intro_bpm', 120)
-                track.append(mido.MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
-                dur = cfg.get('timing', {}).get('note_duration', 1.8)
-                ticks = int(mid.ticks_per_beat * (dur * tempo_bpm / 60.0))
-                # Play notes consecutively with no pause between them
-                for i, n in enumerate(notes):
-                    track.append(Message('note_on', note=int(n), velocity=velocity, time=0))
-                    track.append(Message('note_off', note=int(n), velocity=0, time=ticks))
-                mid.save(midi_path)
-                rendered = False
-                if method == 'soundfont' and os.path.exists(sf2_path):
-                    try:
-                        rendered = render_midi_to_wav(midi_path, sf2_path, out_wav)
-                    except Exception:
-                        rendered = False
-                if not rendered:
-                    synth_simple_wav(notes, cfg.get('timing', {}).get('note_duration', 1.8), out_wav)
-            else:
-                continue
-            if PYDUB_AVAILABLE:
-                parts.append(AudioSegment.from_wav(out_wav))
-            else:
-                arr, sr = read_wav_mono(out_wav)
-                parts.append((arr, sr))
-
-        if not parts:
-            print('No exercises generated. Exiting.')
-            return
-
-        pause_rep = int(cfg.get('timing', {}).get('pause_between_reps', 1.0) * 1000)
-        pause_block = int(cfg.get('timing', {}).get('pause_between_blocks', 4.0) * 1000)
-        out_ext = fmt.lower()
-        if PYDUB_AVAILABLE:
-            session = AudioSegment.silent(duration=0)
-            for i, p in enumerate(parts):
-                session += p + AudioSegment.silent(duration=pause_rep)
-            session = effects.normalize(session)
-            if not out_name.lower().endswith('.' + out_ext):
-                out_name = out_name + '.' + out_ext
-            session.export(out_name, format=out_ext)
-            print(f'Wrote session to {out_name}')
-        else:
-            # Build combined numpy array (mono, int16)
-            target_sr = 44100
-            combined = np.zeros(0, dtype=np.int16)
-            for i, (arr, sr) in enumerate(parts):
-                if sr != target_sr:
-                    # simple resample via numpy (nearest) if needed
-                    factor = float(target_sr) / float(sr)
-                    indices = (np.arange(int(len(arr) * factor)) / factor).astype(int)
-                    arr = arr[indices]
-                combined = np.concatenate([combined, arr, make_silence_ms(pause_rep, target_sr)])
-            combined = normalize_int16(combined)
-            # Write WAV; if target format is not WAV, try ffmpeg to convert
-            if out_ext == 'wav':
-                if not out_name.lower().endswith('.wav'):
-                    out_name = out_name + '.wav'
-                write_wav_mono(out_name, combined, target_sr)
-                print(f'Wrote session WAV to {out_name}')
-            else:
-                temp_wav = os.path.join(tmpdir, 'session.wav')
-                write_wav_mono(temp_wav, combined, target_sr)
-                ffmpeg = shutil.which('ffmpeg')
-                if ffmpeg:
-                    if not out_name.lower().endswith('.' + out_ext):
-                        out_name = out_name + '.' + out_ext
-                    cmd = [ffmpeg, '-y', '-i', temp_wav, out_name]
-                    subprocess.check_call(cmd)
-                    print(f'Wrote session to {out_name} (via ffmpeg)')
-                    try:
-                        os.remove(temp_wav)
-                    except Exception:
-                        pass
-                else:
-                    print(f'ffmpeg not found — wrote WAV to {temp_wav}. To get {out_ext}, install ffmpeg and re-run.')
-        # If verbose requested, always write the text log alongside audio output
-        if args.verbose:
-            text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
-            write_text_log(text_path, final_list)
+        # No audio rendering: write the text log using the actual MIDI ticks per beat
+        text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
+        ticks_val = session_mid.ticks_per_beat if 'session_mid' in locals() else 480
+        write_text_log(text_path, final_list, ticks_per_beat=ticks_val)
+        return
+    except Exception as e:
+        print(f'Warning: failed to write text log: {e}')
 
     finally:
         shutil.rmtree(tmpdir)
