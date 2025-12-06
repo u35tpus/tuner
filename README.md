@@ -6,8 +6,9 @@ Dieses Repository enthält das Skript `intonation_trainer.py`, eine Beispielkonf
 
 **Inhalt**
 - **Installation**: Virtualenv, Abhängigkeiten
-- **Schnellstart**: Ausführen mit Standard-Konfig
-- **Konfigurationsdatei**: Alle relevanten YAML-Keys (inkl. `exercises_count`)
+- **Schnellstart**: Ausführen mit Standard-Konfig oder mit ABC-Sequenzen
+- **Konfigurationsdatei**: Alle relevanten YAML-Keys (inkl. `sequences`, `exercises_count`)
+- **ABC-Notation**: Format für Notatensequenzen mit Taktstrichsymbolen
 - **CLI-Optionen**: Vollständige Liste + Beispiele
 - **Text-Log-Modus**: Dry-run & Wiedergabe aus Text-Log
 - **Tipps & Troubleshooting**: fluidsynth / ffmpeg Hinweise
@@ -55,12 +56,31 @@ Das erzeugt standardmäßig eine MP3-Datei nach `output.filename` in der Konfigu
   - `lowest_note`: z. B. `A2`
   - `highest_note`: z. B. `C4`
 
-- `scale`:
+- `sequences` (optional):
+  - Alternativ zu `scale` / `content`: Definiere explizite Note-Sequenzen
+  - Format: Liste von Strings in **ABC-Notation** oder **komma-getrennt**
+  - Beispiel **ABC-Notation** (empfohlen):
+    ```yaml
+    sequences:
+      - "|D#3 A#2 C4| C4 |"    # Pipe (|) markiert Taktstrich, Noten raumgetrennt
+      - "|G3 C4| A4 D3 |"     # Mehrere Takte in einer Sequenz
+      - "|G#2 C4 E3|"          # Einfache Sequenz
+    ```
+  - Beispiel **komma-getrennt** (rückwärts-kompatibel):
+    ```yaml
+    sequences:
+      - "D#3, A#2, C4, C4"     # Komma-getrennte Notennamen
+      - "G3, C4, A4, D3"       # Alternative Format
+    ```
+  - **Priorität**: Wenn `sequences` definiert, werden `scale` und `content` ignoriert
+  - **Keine `vocal_range` nötig**: Sequenzen spezifizieren Noten explizit
+
+- `scale` (optional, wird ignoriert wenn `sequences` definiert):
   - `name`, `root`: z. B. `root: F2`
   - `type`: z. B. `natural_minor`, `major`, `dorian`, etc.
   - Alternativ: `notes:` Liste mit konkreten Notennamen (falls du eine benutzerdefinierte Skala willst)
 
-- `content`:
+- `content` (optional, wird ignoriert wenn `sequences` definiert):
   - `intervals`: Einstellungen für Intervall-Generierung (ascending/descending, max_interval...)
   - `triads`: `enabled`, `include_inversions`, `types` (z. B. `[major, minor, diminished]`)
 
@@ -118,7 +138,36 @@ Wichtig: Es gibt aktuell keine CLI-Flag `--exercises-count`; `exercises_count` w
 python3 intonation_trainer.py config_template.yaml --dry-run --max-duration 180 --text-file test_3min.txt
 ```
 
-2) Erzeuge Session basierend auf `exercises_count` in der YAML (zuerst `config_template.yaml` bearbeiten):
+2) Erzeuge Session mit expliziten Note-Sequenzen in ABC-Notation (neue Datei `config_sequences.yaml`):
+
+```yaml
+# in config_sequences.yaml
+sequences:
+  - "|D#3 A#2 C4| C4 |"      # ABC-Notation mit Taktstrichsymbolen
+  - "|G3 C4| A4 D3 |"
+  - "|G#2 C4 E3| F#3 D#3 |"
+
+repetitions_per_exercise: 3    # Jede Sequenz 3x wiederholt
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+```
+
+Dann ausführen:
+
+```bash
+. .venv/bin/activate
+python3 intonation_trainer.py config_sequences.yaml
+```
+
+Das erzeugt Audioausgabe mit den definierten Sequenzen.
+
+3) Erzeuge Session basierend auf `exercises_count` in der YAML (zuerst `config_template.yaml` bearbeiten):
 
 ```yaml
 # in config_template.yaml
@@ -132,14 +181,14 @@ Dann ausführen:
 python3 intonation_trainer.py config_template.yaml
 ```
 
-3) Rendern aus einem vorhandenen Text-Log (z. B. `test_3min.txt`):
+4) Rendern aus einem vorhandenen Text-Log (z. B. `test_3min.txt`):
 
 ```bash
 . .venv/bin/activate
 python3 intonation_trainer.py config_template.yaml --from-text test_3min.txt --output from_text_session.mp3
 ```
 
-4) Expliziter Output-Name & verbose Log
+5) Expliziter Output-Name & verbose Log
 
 ```bash
 . .venv/bin/activate
@@ -174,7 +223,8 @@ python3 intonation_trainer.py config_template.yaml --output my_session --verbose
 
 Dateien im Projekt (wichtig):
 - `intonation_trainer.py` — Hauptskript
-- `config_template.yaml` — Beispielkonfiguration (kopieren und anpassen)
+- `config_template.yaml` — Beispielkonfiguration für Skalen-basierte Generierung (kopieren und anpassen)
+- `config_sequences_example.yaml` — Beispielkonfiguration für ABC-Notation Sequenzen
 - `requirements.txt` — Python-Abhängigkeiten
 - `piano/SalamanderGrandPiano.sf2` — optionaler freier SoundFont (wenn vorhanden)
 
