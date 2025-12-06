@@ -49,8 +49,5 @@ run-demo:
 	python3 intonation_trainer.py config_template.yaml --dry-run --max-duration 180 --text-file demo_exercises.txt
 
 clean:
-	rm -f Intonation_*.mp3 Intonation_*.mid Intonation_*.txt Intonation_*.wav
-	rm -f demo_*.mp3 demo_*.mid demo_*.txt demo_*.wav
-	rm -f test_*.mp3 test_*.mid test_*.txt test_*.wav
-	rm -f from_text_*.mp3 from_text_*.mid
+	rm -f *.mp3 *.mid *.txt *.wav
 	@echo "Cleaned up generated files."
