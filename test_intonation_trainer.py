@@ -989,6 +989,53 @@ class TestSequenceGeneration(unittest.TestCase):
         result = trainer.parse_abc_sequence("||")
         self.assertIsNone(result)
 
+    def test_sequence_midi_durations_respected_in_session(self):
+        """Ensure that per-note durations from ABC sequences are reflected in session MIDI ticks.
+
+        Example: unit_length=1.0 (quarter note). Sequence: |G#2 C4 E32|
+        E32 means E3 with multiplier 2 -> duration = 2.0 beats (half note).
+        At 120 BPM and ticks_per_beat=480, a quarter note -> 960 ticks, half -> 1920 ticks.
+        """
+        seq_cfg = {
+            'notes': ["|G#2 C4 E32|"],
+            'unit_length': 1.0,
+        }
+        exercises = trainer.parse_sequences_from_config(seq_cfg, default_unit_length=1.0)
+        self.assertEqual(len(exercises), 1)
+        ex = exercises[0]
+        self.assertEqual(ex[0], 'sequence')
+        notes_with_dur = ex[1]
+        # Expect three notes with durations: (G#2,1.0), (C4,1.0), (E3,2.0)
+        self.assertEqual(len(notes_with_dur), 3)
+        self.assertEqual(notes_with_dur[0][1], 1.0)
+        self.assertEqual(notes_with_dur[1][1], 1.0)
+        self.assertEqual(notes_with_dur[2][1], 2.0)
+
+        # Build a session MIDI just like main() does and inspect tick values
+        from mido import MidiFile, MidiTrack, Message, bpm2tempo
+        session_mid = MidiFile()
+        track = MidiTrack()
+        session_mid.tracks.append(track)
+        tempo_bpm = 120
+        track.append(__import__('mido').MetaMessage('set_tempo', tempo=bpm2tempo(tempo_bpm)))
+        ticks_per_beat = session_mid.ticks_per_beat
+        def secs_to_ticks(s):
+            return int(s * (ticks_per_beat * tempo_bpm / 60.0))
+
+        # Append notes as main() would
+        for midi_note, dur in notes_with_dur:
+            track.append(Message('note_on', note=int(midi_note), velocity=90, time=0))
+            track.append(Message('note_off', note=int(midi_note), velocity=0, time=secs_to_ticks(dur)))
+
+        # Now inspect the track to find the note_off for E3
+        # E3 MIDI value:
+        e3 = trainer.note_name_to_midi('E3')
+        note_offs = [m for m in track if hasattr(m, 'note') and m.type == 'note_off' and m.note == e3]
+        self.assertTrue(len(note_offs) >= 1)
+        # The time field on the note_off event should be ticks for half note (1920)
+        expected_half_ticks = secs_to_ticks(2.0)
+        self.assertEqual(note_offs[0].time, expected_half_ticks)
+
     def test_parse_sequences_structured_format(self):
         """Test parsing sequences with structured config (signature, L, notes)."""
         sequences_cfg = {
