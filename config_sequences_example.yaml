@@ -3,10 +3,6 @@ output:
   format: mp3
   normalize_lufs: -16
 
-vocal_range:
-  lowest_note: A2
-  highest_note: C4
-
 # When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
 # Each sequence is a comma-separated list of note names.
 sequences:
