@@ -126,6 +126,11 @@ Fm:
   E: 'b'
   A: 'b'
   D: 'b'
+Fminor:  # Alias for Fm
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
 Bbm:
   B: 'b'
   E: 'b'
