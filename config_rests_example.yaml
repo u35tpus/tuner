@@ -1,0 +1,60 @@
+# Beispiel-Konfiguration: Sequenzen mit Pausen
+# Dieses Beispiel demonstriert die Verwendung von Pausen (Rests) in Sequenzen
+
+output:
+  filename: "Sequences_with_Rests_{date}.mid"
+  format: mid
+  normalize_lufs: -16
+
+# Sequenzen mit Pausen verschiedener Dauer
+sequences:
+  signature: "4/4"
+  unit_length: 1.0  # 1.0 = Viertelnote
+  scale: Gmajor      # Automatisches Mapping: F wird zu F#
+  notes:
+    # Beispiel 1: Einfache Melodie mit Atempausen
+    - "C4 D4 E4 z E4 F4 G4 z2"
+    # C D E [Pause] E F G [längere Pause]
+    
+    # Beispiel 2: Rhythmische Phrase mit kurzen Pausen
+    - "G4 z/2 G4 z/2 A4 z/2 B4 z"
+    # G [kurze Pause] G [kurze Pause] A [kurze Pause] B [Viertelpause]
+    
+    # Beispiel 3: Mit expliziten Pausenlängen
+    - "C4 z:0.5 D4 z:1.5 E4"
+    # C [halbe Pause] D [punktierte Viertelpause] E
+    
+    # Beispiel 4: Phrase mit Taktstrichen und Pausen
+    - "| C4 D4 | z E4 F4 | z2 | G4 A4 B4 |"
+    # Takt 1: C D | Takt 2: Pause E F | Takt 3: lange Pause | Takt 4: G A B
+    
+    # Beispiel 5: Verschiedene Pausennotationen (z, Z, x sind äquivalent)
+    - "C4 z D4 Z E4 x F4"
+    # C [Pause] D [Pause] E [Pause] F
+    
+    # Beispiel 6: Nur Pausen (für Stille oder Timing-Tests)
+    - "z z2 z4 z/2"
+    # Viertelpause, halbe Pause, ganze Pause, Achtelpause
+    
+    # Beispiel 7: Musikphrase mit natürlichen Atempausen
+    - "C4 D4 E4 F4 z G4 A4 B4 C5 z2 C5 B4 A4 G4"
+    # Do Re Mi Fa [Pause] Sol La Ti Do [längere Pause] Do Ti La Sol
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 2.0
+  intro_beats: 4
+  intro_bpm: 120
+
+# Jede Sequenz einmal wiederholen (kann erhöht werden für mehr Übung)
+repetitions_per_exercise: 1
+random_seed: null
+
+# Session-Dauer: ca. 1 Minute
+max_duration: 60
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
