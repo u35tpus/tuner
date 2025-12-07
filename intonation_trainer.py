@@ -973,7 +973,7 @@ def main():
         else:
             actual_reps = 1
     
-    # Build final list with exercises repeated according to actual_reps
+    # Build final list as cyclic block pattern: repeat all sequences repetitions_per_exercise times, then next block, until max_duration
     final_list = []
     if len(exercises) > 0:
         if args.from_text:
@@ -985,16 +985,21 @@ def main():
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
         else:
-            # Blockweises Wiederholen: Jede Sequenz wird repetitions_per_exercise-mal wiederholt, dann die nächste
             total_time = 0.0
-            for ex in exercises:
-                for _ in range(actual_reps):
+            while True:
+                for ex in exercises:
+                    for _ in range(actual_reps):
+                        if exercises_count is not None and len(final_list) >= exercises_count:
+                            break
+                        if total_time + time_per_exercise > max_duration_seconds:
+                            break
+                        final_list.append(ex)
+                        total_time += time_per_exercise
                     if exercises_count is not None and len(final_list) >= exercises_count:
                         break
                     if total_time + time_per_exercise > max_duration_seconds:
                         break
-                    final_list.append(ex)
-                    total_time += time_per_exercise
+                # Abbruch, wenn Zeit oder Anzahl erreicht
                 if exercises_count is not None and len(final_list) >= exercises_count:
                     break
                 if total_time + time_per_exercise > max_duration_seconds:
