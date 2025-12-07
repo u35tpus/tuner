@@ -1,3 +1,14 @@
+def preparse_abc_notes(abc_str, default_length=1.0):
+    """Pre-Parsing: Check each note in ABC string before main parsing. Returns error if any note fails."""
+    original_str = abc_str
+    abc_str = abc_str.replace('|', ' ')
+    note_strs = [n.strip() for n in abc_str.split() if n.strip()]
+    for i, note_str in enumerate(note_strs):
+        parsed = parse_abc_note_with_duration(note_str, default_length)
+        if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
+            error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
+            return (None, f"Pre-parsing error: Note '{note_str}' at position {i+1} in sequence '{original_str}' did not pass pre-check. Reason: {error_msg}")
+    return True
 #!/usr/bin/env python3
 """
 Intonation Trainer – Scale-Aware Random Interval & Triad Generator (CLI)
@@ -122,50 +133,115 @@ def parse_abc_note_with_duration(note_str, default_length=1.0):
       "C4" -> (60, 1.0)  [quarter note at default length]
       "C4/2" -> (60, 0.5)  [eighth note, half the length]
       "C4*2" or "C42" -> (60, 2.0)  [half note, double the length]
-      "G#3" -> (56, 1.0)
+      "G#3" or "G3#" -> (56, 1.0)
+      "C4:1.5" -> (60, 1.5)  [explicit duration]
+      "z2" -> ('rest', 2.0)  [rest with duration 2]
     
     Args:
-        note_str: String like "C4", "C42", "C4/2", "G#3*2"
+        note_str: String like "C4", "C42", "C4/2", "G#3*2", "z2"
         default_length: Base unit length in beats (typically 1.0 for quarter note)
     
     Returns:
-        Tuple (midi_number, duration_in_beats) or None if parsing fails
+        Tuple (midi_number, duration_in_beats) or ('rest', duration) for rests
+        or tuple (None, error_message) if parsing fails
     """
     import re
     note_str = note_str.strip()
     
-    # Extract note name and optional length modifier
-    # Pattern: letter + optional accidental + single digit octave + optional length
-    # Examples: C4, C#4, Db4, C42, C4/2, C4*2
-    match = re.match(r'^([A-G][#b]?)(\d)([\d/\*]*)$', note_str)
-    if not match:
-        return None
+    if not note_str:
+        return (None, "Empty note string")
     
-    note_name_part = match.group(1) + match.group(2)  # e.g., "C#4"
-    length_part = match.group(3)  # e.g., "2" or "/2" or "*2"
+    # Check for rest notation (z, Z, or x)
+    rest_match = re.match(r'^([zZx])([\d.:/*]*)$', note_str)
+    if rest_match:
+        rest_symbol = rest_match.group(1)
+        length_part = rest_match.group(2)
+        duration = default_length
+        if length_part:
+            try:
+                duration = _parse_duration_modifier(length_part, default_length)
+            except ValueError as e:
+                return (None, f"Invalid duration '{length_part}' for rest '{rest_symbol}': {e}")
+        return ('rest', duration)
+    
+    # Try to parse as note: letter + optional accidental (before or after octave) + octave + optional duration
+    # Support patterns: C#4, C4#, Db4, D4b, C4:1.5, C42, C4/2, C4*2
+    match = re.match(r'^([A-G])([#b]?)(\d)([#b]?)([\d.:/*]*)$', note_str, re.IGNORECASE)
+    if not match:
+        return (None, f"Invalid note format '{note_str}'. Expected format: <Letter>[#/b]<Octave>[duration], e.g., 'C4', 'F#3', 'G4:1.5', 'A#42', 'Bb4/2'")
+    
+    letter = match.group(1).upper()
+    accidental_before = match.group(2)
+    octave = match.group(3)
+    accidental_after = match.group(4)
+    length_part = match.group(5)
+    
+    # Combine accidentals (prefer one before octave, but accept after)
+    accidental = accidental_before or accidental_after
+    if accidental_before and accidental_after:
+        return (None, f"Conflicting accidentals in '{note_str}': both '{accidental_before}' (before octave) and '{accidental_after}' (after octave) specified")
+    
+    note_name_part = letter + accidental + octave
     
     try:
         midi = note_name_to_midi(note_name_part)
-    except Exception:
-        return None
+    except Exception as e:
+        return (None, f"Could not convert '{note_name_part}' to MIDI: {e}")
     
-    # Parse length modifier
+    # Parse duration modifier
     duration = default_length
     if length_part:
-        if length_part.startswith('/'):
-            # Division: /2 means half duration
-            divisor = float(length_part[1:])
-            duration = default_length / divisor
-        elif length_part.startswith('*'):
-            # Multiplication: *2 means double duration
-            multiplier = float(length_part[1:])
-            duration = default_length * multiplier
-        else:
-            # Direct multiplier: "2" means 2x length (ABC standard notation)
-            multiplier = float(length_part)
-            duration = default_length * multiplier
+        try:
+            duration = _parse_duration_modifier(length_part, default_length)
+        except ValueError as e:
+            return (None, f"Invalid duration '{length_part}' for note '{note_name_part}': {e}")
     
     return (midi, duration)
+
+
+def _parse_duration_modifier(length_str, default_length):
+    """Parse duration modifier string and return duration in beats.
+    
+    Supports:
+      - Direct multiplier: "2" means 2x length
+      - Division: "/2" means half length
+      - Multiplication: "*2" means 2x length
+      - Explicit duration: ":1.5" means 1.5 beats
+    
+    Raises ValueError if parsing fails.
+    """
+    if not length_str:
+        return default_length
+    
+    if length_str.startswith(':'):
+        # Explicit duration: :1.5
+        try:
+            return float(length_str[1:])
+        except ValueError:
+            raise ValueError(f"Cannot parse explicit duration '{length_str[1:]}' as number")
+    elif length_str.startswith('/'):
+        # Division: /2 means half duration
+        try:
+            divisor = float(length_str[1:])
+            if divisor == 0:
+                raise ValueError("Cannot divide by zero")
+            return default_length / divisor
+        except ValueError as e:
+            raise ValueError(f"Cannot parse divisor '{length_str[1:]}': {e}")
+    elif length_str.startswith('*'):
+        # Multiplication: *2 means double duration
+        try:
+            multiplier = float(length_str[1:])
+            return default_length * multiplier
+        except ValueError:
+            raise ValueError(f"Cannot parse multiplier '{length_str[1:]}' as number")
+    else:
+        # Direct multiplier: "2" means 2x length (ABC standard notation)
+        try:
+            multiplier = float(length_str)
+            return default_length * multiplier
+        except ValueError:
+            raise ValueError(f"Cannot parse '{length_str}' as number")
 
 
 def parse_abc_sequence(abc_str, default_length=1.0):
@@ -175,29 +251,34 @@ def parse_abc_sequence(abc_str, default_length=1.0):
     Pipes (|) mark bar lines and are ignored.
     Notes are space-separated within bars.
     Default length (L) can be specified (e.g., 1.0 = quarter note).
+    Supports rests: z, Z, or x with optional duration.
     
     Args:
-        abc_str: ABC notation string (e.g., "|C4 D42 E4|")
+        abc_str: ABC notation string (e.g., "|C4 D42 E4|" or "z2 | B3 | E4:1.5")
         default_length: Unit length in beats (default 1.0 for quarter note)
     
     Returns:
-        List of (midi_number, duration) tuples, or None if parsing fails
+        List of (midi_number, duration) tuples (or ('rest', duration) for rests)
+        or tuple (None, error_message) if parsing fails
     """
-    # Remove all bar line characters
+    # Pre-parsing check
+    precheck = preparse_abc_notes(abc_str, default_length)
+    if precheck is not True:
+        return precheck
+    original_str = abc_str
     abc_str = abc_str.replace('|', ' ')
-    # Split by whitespace and filter empty strings
     note_strs = [n.strip() for n in abc_str.split() if n.strip()]
-    
     if not note_strs:
-        return None
-    
+        return (None, f"No notes found in ABC sequence '{original_str}'")
     notes_with_durations = []
-    for note_str in note_strs:
+    for i, note_str in enumerate(note_strs):
         parsed = parse_abc_note_with_duration(note_str, default_length)
-        if parsed is None:
-            return None  # Fail if any note cannot be parsed
+        if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
+            error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
+            position_info = f"at position {i+1} ('{note_str}')"
+            context = " ".join(note_strs[max(0,i-1):min(len(note_strs),i+2)])
+            return (None, f"Failed to parse ABC sequence '{original_str}' {position_info}.\nError: {error_msg}\nContext: ...{context}...")
         notes_with_durations.append(parsed)
-    
     return notes_with_durations
 
 
@@ -235,10 +316,11 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
         
         for seq_str in notes_list:
             notes_with_dur = parse_abc_sequence(seq_str, unit_length_val)
-            if notes_with_dur:
+            if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
                 exercises.append(('sequence', notes_with_dur))
             else:
-                print(f'Warning: Could not parse ABC sequence "{seq_str}"')
+                error_msg = notes_with_dur[1] if notes_with_dur and len(notes_with_dur) == 2 else "Unknown error"
+                print(f'Warning: {error_msg}')
         return exercises
     
     # Handle list format (simple strings, backward compatible)
@@ -247,10 +329,11 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
         if '|' in seq_str:
             # ABC format (with optional durations)
             notes_with_dur = parse_abc_sequence(seq_str, default_unit_length)
-            if notes_with_dur:
+            if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
                 exercises.append(('sequence', notes_with_dur))
             else:
-                print(f'Warning: Could not parse ABC sequence "{seq_str}"')
+                error_msg = notes_with_dur[1] if notes_with_dur and len(notes_with_dur) == 2 else "Unknown error"
+                print(f'Warning: {error_msg}')
         else:
             # Comma-separated format (backward compatible, no durations)
             note_names = [n.strip() for n in seq_str.split(',')]
