@@ -248,7 +248,7 @@ def _parse_duration_modifier(length_str, default_length):
             raise ValueError(f"Cannot parse '{length_str}' as number")
 
 
-def parse_abc_sequence(abc_str, default_length=1.0):
+def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None):
     """Parse ABC notation sequence with durations into list of (midi, duration) tuples.
     
     ABC format: |D#3 A#2 C4| C4 |  or  |C4 D42 E4/2 F4|
@@ -260,6 +260,7 @@ def parse_abc_sequence(abc_str, default_length=1.0):
     Args:
         abc_str: ABC notation string (e.g., "|C4 D42 E4|" or "z2 | B3 | E4:1.5")
         default_length: Unit length in beats (default 1.0 for quarter note)
+        scale_name: Optional scale name for automatic accidentals (e.g., 'Gmajor', 'Fminor')
     
     Returns:
         List of (midi_number, duration) tuples (or ('rest', duration) for rests)
@@ -277,16 +278,7 @@ def parse_abc_sequence(abc_str, default_length=1.0):
 
     # Skalen-Mapping laden, falls scale angegeben
     scale_map = None
-    scale_name = None
-    import inspect
-    frame = inspect.currentframe()
-    while frame:
-        if 'sequences_cfg' in frame.f_locals:
-            scale_name = frame.f_locals['sequences_cfg'].get('scale', None)
-            break
-        frame = frame.f_back
     if scale_name:
-        # Lade Skalen-Mapping aus config/scales.yaml
         try:
             scales_cfg = parse_yaml('config/scales.yaml')
             scale_map = scales_cfg.get(scale_name, {})
@@ -358,6 +350,11 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
     if not sequences_cfg:
         return exercises
     
+    # Extract scale name if present
+    scale_name = None
+    if isinstance(sequences_cfg, dict):
+        scale_name = sequences_cfg.get('scale', None)
+    
     # Handle structured format (dict with signature, L, notes)
     if isinstance(sequences_cfg, dict):
         notes_list = sequences_cfg.get('notes', [])
@@ -371,7 +368,7 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
                 unit_length_val = float(parts[0]) / float(parts[1])
         
         for seq_str in notes_list:
-            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val)
+            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val, scale_name)
             if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
                 exercises.append(('sequence', notes_with_dur))
             else:
@@ -384,7 +381,7 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
         # Detect format: if contains pipe (|), treat as ABC; else as comma-separated
         if '|' in seq_str:
             # ABC format (with optional durations)
-            notes_with_dur = parse_abc_sequence(seq_str, default_unit_length)
+            notes_with_dur = parse_abc_sequence(seq_str, default_unit_length, scale_name)
             if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
                 exercises.append(('sequence', notes_with_dur))
             else:
@@ -550,7 +547,9 @@ def build_final_list(cfg: dict, args) -> tuple:
             )
             exercises += triads
 
-    random.shuffle(exercises)
+    # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
+    if not sequences_cfg:
+        random.shuffle(exercises)
     # timing
     note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
     pause_between_reps = cfg.get('timing', {}).get('pause_between_reps', 1.0)
@@ -591,14 +590,19 @@ def build_final_list(cfg: dict, args) -> tuple:
             else:
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
-        else:
+        elif sequences_cfg:
+            # Blockweise Wiederholung: Jede Sequenz n-mal hintereinander
+            final_list = []
             for ex in exercises:
-                if exercises_count is not None and len(final_list) >= exercises_count:
-                    break
+                for _ in range(repetitions_per_exercise_cfg):
+                    final_list.append(ex)
+        else:
+            # Standardverhalten für Skalen/Intervalle/Triaden
+            for ex in exercises:
                 for _ in range(actual_reps):
                     final_list.append(ex)
-                    if exercises_count is not None and len(final_list) >= exercises_count:
-                        break
+            if exercises_count is not None and len(final_list) > exercises_count:
+                final_list = final_list[:exercises_count]
 
     estimated_duration = len(final_list) * time_per_exercise
 
@@ -1039,7 +1043,13 @@ def main():
             else:
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
+        elif sequences_cfg:
+            # Blockwise repetition for sequences: each sequence repeated n times before moving to next
+            for ex in exercises:
+                for _ in range(repetitions_per_exercise_cfg):
+                    final_list.append(ex)
         else:
+            # For intervals/triads, use duration-based filling
             total_time = 0.0
             while True:
                 for ex in exercises:
