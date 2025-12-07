@@ -1,4 +1,63 @@
-#!/usr/bin/env python3
+import unittest
+import intonation_trainer as trainer
+import yaml
+import os
+
+class TestScalesParsing(unittest.TestCase):
+    def setUp(self):
+        self.gmajor_cfg = {
+            'signature': '4/4',
+            'scale': 'Gmajor',
+            'unit_length': 1.0,
+            'notes': [
+                "F4 G4 A4",  # F should be F#
+                "F!4 G4"     # F! should be F
+            ]
+        }
+        self.fminor_cfg = {
+            'signature': '4/4',
+            'scale': 'Fminor',
+            'unit_length': 1.0,
+            'notes': [
+                "A4 B4 D4 E4",  # A, B, D, E should be with b
+                "A!4 B!4 D!4 E!4" # override: no b
+            ]
+        }
+
+    def test_gmajor_default_and_override(self):
+        # F4 should be F#4, F!4 should be F4
+        seqs = trainer.parse_sequences_from_config(self.gmajor_cfg)
+        midi_fsharp = trainer.note_name_to_midi('F#4')
+        midi_f = trainer.note_name_to_midi('F4')
+        # First sequence: F4 G4 A4 -> F#4 G4 A4
+        self.assertEqual(seqs[0][1][0][0], midi_fsharp)
+        # Second sequence: F!4 G4 -> F4 G4
+        self.assertEqual(seqs[1][1][0][0], midi_f)
+
+    def test_fminor_default_and_override(self):
+        # A4, B4, D4, E4 should be Ab4, Bb4, Db4, Eb4
+        seqs = trainer.parse_sequences_from_config(self.fminor_cfg)
+        midi_ab = trainer.note_name_to_midi('Ab4')
+        midi_bb = trainer.note_name_to_midi('Bb4')
+        midi_db = trainer.note_name_to_midi('Db4')
+        midi_eb = trainer.note_name_to_midi('Eb4')
+        # First sequence: A4 B4 D4 E4 -> Ab4 Bb4 Db4 Eb4
+        self.assertEqual(seqs[0][1][0][0], midi_ab)
+        self.assertEqual(seqs[0][1][1][0], midi_bb)
+        self.assertEqual(seqs[0][1][2][0], midi_db)
+        self.assertEqual(seqs[0][1][3][0], midi_eb)
+        # Second sequence: A!4 B!4 D!4 E!4 -> A4 B4 D4 E4
+        midi_a = trainer.note_name_to_midi('A4')
+        midi_b = trainer.note_name_to_midi('B4')
+        midi_d = trainer.note_name_to_midi('D4')
+        midi_e = trainer.note_name_to_midi('E4')
+        self.assertEqual(seqs[1][1][0][0], midi_a)
+        self.assertEqual(seqs[1][1][1][0], midi_b)
+        self.assertEqual(seqs[1][1][2][0], midi_d)
+        self.assertEqual(seqs[1][1][3][0], midi_e)
+
+if __name__ == "__main__":
+    unittest.main()#!/usr/bin/env python3
 import unittest
 import os
 import sys
