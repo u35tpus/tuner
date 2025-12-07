@@ -7,7 +7,8 @@ def preparse_abc_notes(abc_str, default_length=1.0):
         parsed = parse_abc_note_with_duration(note_str, default_length)
         if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
             error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
-            return (None, f"Pre-parsing error: Note '{note_str}' at position {i+1} in sequence '{original_str}' did not pass pre-check. Reason: {error_msg}")
+            context = " ".join(note_strs[max(0,i-1):min(len(note_strs),i+2)])
+            return (None, f"Pre-parsing error: Note '{note_str}' at position {i+1} in sequence '{original_str}' did not pass pre-check. Reason: {error_msg}\nContext: ...{context}...")
     return True
 #!/usr/bin/env python3
 """
