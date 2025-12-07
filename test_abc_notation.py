@@ -88,11 +88,22 @@ class TestABCNoteWithDuration(unittest.TestCase):
         self.assertEqual(result, (60, 0.125))
 
     def test_parse_abc_note_invalid(self):
-        """Test that invalid note names return None."""
-        self.assertIsNone(trainer.parse_abc_note_with_duration("X4", 1.0))
-        self.assertIsNone(trainer.parse_abc_note_with_duration("C", 1.0))
-        self.assertIsNone(trainer.parse_abc_note_with_duration("", 1.0))
-        self.assertIsNone(trainer.parse_abc_note_with_duration("4C", 1.0))
+        """Test that invalid note names return error tuple."""
+        result = trainer.parse_abc_note_with_duration("X4", 1.0)
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])  # First element should be None for errors
+        
+        result = trainer.parse_abc_note_with_duration("C", 1.0)
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])
+        
+        result = trainer.parse_abc_note_with_duration("", 1.0)
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])
+        
+        result = trainer.parse_abc_note_with_duration("4C", 1.0)
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])
 
 
 class TestABCSequence(unittest.TestCase):
@@ -145,10 +156,18 @@ class TestABCSequence(unittest.TestCase):
         self.assertEqual(midi_notes, [61, 61, 54])  # C#4=Db4=61
 
     def test_parse_abc_sequence_invalid(self):
-        """Test that invalid ABC sequences return None."""
-        self.assertIsNone(trainer.parse_abc_sequence("|invalid notes|"))
-        self.assertIsNone(trainer.parse_abc_sequence("||"))
-        self.assertIsNone(trainer.parse_abc_sequence("|X4 Y5|"))
+        """Test that invalid ABC sequences return error tuple."""
+        result = trainer.parse_abc_sequence("|invalid notes|")
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])  # First element should be None for errors
+        
+        result = trainer.parse_abc_sequence("||")
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])
+        
+        result = trainer.parse_abc_sequence("|X4 Y5|")
+        self.assertIsNotNone(result)
+        self.assertIsNone(result[0])
 
     def test_parse_abc_sequence_single_note(self):
         """Test ABC sequence with single note."""
