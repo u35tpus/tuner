@@ -148,10 +148,13 @@ def parse_abc_note_with_duration(note_str, default_length=1.0):
     """
     import re
     note_str = note_str.strip()
-    
+    # Erlaube ! als Override für kein Vorzeichen
+    if '!' in note_str:
+        note_str = note_str.replace('!', '')
+
     if not note_str:
         return (None, "Empty note string")
-    
+
     # Check for rest notation (z, Z, or x)
     rest_match = re.match(r'^([zZx])([\d.:/*]*)$', note_str)
     if rest_match:
@@ -164,31 +167,31 @@ def parse_abc_note_with_duration(note_str, default_length=1.0):
             except ValueError as e:
                 return (None, f"Invalid duration '{length_part}' for rest '{rest_symbol}': {e}")
         return ('rest', duration)
-    
+
     # Try to parse as note: letter + optional accidental (before or after octave) + octave + optional duration
     # Support patterns: C#4, C4#, Db4, D4b, C4:1.5, C42, C4/2, C4*2
     match = re.match(r'^([A-G])([#b]?)(\d)([#b]?)([\d.:/*]*)$', note_str, re.IGNORECASE)
     if not match:
         return (None, f"Invalid note format '{note_str}'. Expected format: <Letter>[#/b]<Octave>[duration], e.g., 'C4', 'F#3', 'G4:1.5', 'A#42', 'Bb4/2'")
-    
+
     letter = match.group(1).upper()
     accidental_before = match.group(2)
     octave = match.group(3)
     accidental_after = match.group(4)
     length_part = match.group(5)
-    
+
     # Combine accidentals (prefer one before octave, but accept after)
     accidental = accidental_before or accidental_after
     if accidental_before and accidental_after:
         return (None, f"Conflicting accidentals in '{note_str}': both '{accidental_before}' (before octave) and '{accidental_after}' (after octave) specified")
-    
+
     note_name_part = letter + accidental + octave
-    
+
     try:
         midi = note_name_to_midi(note_name_part)
     except Exception as e:
         return (None, f"Could not convert '{note_name_part}' to MIDI: {e}")
-    
+
     # Parse duration modifier
     duration = default_length
     if length_part:
@@ -196,7 +199,7 @@ def parse_abc_note_with_duration(note_str, default_length=1.0):
             duration = _parse_duration_modifier(length_part, default_length)
         except ValueError as e:
             return (None, f"Invalid duration '{length_part}' for note '{note_name_part}': {e}")
-    
+
     return (midi, duration)
 
 
@@ -271,13 +274,65 @@ def parse_abc_sequence(abc_str, default_length=1.0):
     note_strs = [n.strip() for n in abc_str.split() if n.strip()]
     if not note_strs:
         return (None, f"No notes found in ABC sequence '{original_str}'")
+
+    # Skalen-Mapping laden, falls scale angegeben
+    scale_map = None
+    scale_name = None
+    import inspect
+    frame = inspect.currentframe()
+    while frame:
+        if 'sequences_cfg' in frame.f_locals:
+            scale_name = frame.f_locals['sequences_cfg'].get('scale', None)
+            break
+        frame = frame.f_back
+    if scale_name:
+        # Lade Skalen-Mapping aus config/scales.yaml
+        try:
+            scales_cfg = parse_yaml('config/scales.yaml')
+            scale_map = scales_cfg.get(scale_name, {})
+        except Exception:
+            scale_map = None
+
     notes_with_durations = []
-    for i, note_str in enumerate(note_strs):
-        parsed = parse_abc_note_with_duration(note_str, default_length)
+    for note_str in note_strs:
+        # Prüfe auf Override-Notation (!, #, b)
+        override = None
+        note_base = note_str
+        if '!' in note_str:
+            override = '!'
+            note_base = note_str.replace('!', '')
+        elif '#' in note_str:
+            override = '#'
+        elif 'b' in note_str:
+            override = 'b'
+
+        # Extrahiere Buchstaben und Oktave
+        import re
+        m = re.match(r'^([A-G])([#b]?)(\d)([#b]?)([\d.:/*]*)$', note_base)
+        if m:
+            letter = m.group(1)
+            accidental_before = m.group(2)
+            octave = m.group(3)
+            accidental_after = m.group(4)
+            length_part = m.group(5)
+            accidental = accidental_before or accidental_after
+            # Override-Logik
+            if override == '!':
+                accidental = ''
+            elif override in ['#', 'b']:
+                accidental = override
+            elif scale_map:
+                accidental = scale_map.get(letter, '')
+            note_name_part = letter + accidental + octave
+            note_str_mod = note_name_part + length_part
+            parsed = parse_abc_note_with_duration(note_str_mod, default_length)
+        else:
+            # Rest oder ungültig
+            parsed = parse_abc_note_with_duration(note_str, default_length)
         if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
             error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
-            position_info = f"at position {i+1} ('{note_str}')"
-            context = " ".join(note_strs[max(0,i-1):min(len(note_strs),i+2)])
+            position_info = f"at position '{note_str}'"
+            context = " ".join(note_strs)
             return (None, f"Failed to parse ABC sequence '{original_str}' {position_info}.\nError: {error_msg}\nContext: ...{context}...")
         notes_with_durations.append(parsed)
     return notes_with_durations

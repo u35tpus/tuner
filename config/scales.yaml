@@ -1,0 +1,39 @@
+# Mapping von Skalen zu Standard-Vorzeichen für Noten
+# Beispiel: Gmajor -> F ist F#, alle anderen Noten wie notiert
+#           Fminor -> Bb, Ab, Db, Eb
+
+Gmajor:
+  F: '#'
+Fmajor:
+  B: 'b'
+Dmajor:
+  F: '#'
+  C: '#'
+Amajor:
+  F: '#'
+  C: '#'
+  G: '#'
+Emajor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+Bmajor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+  A: '#'
+Fminor:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+Abmajor:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+  G: 'b'
+  C: 'b'
+# ... weitere Skalen nach Bedarf

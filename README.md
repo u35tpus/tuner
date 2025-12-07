@@ -1,3 +1,40 @@
+# Skalen-Mapping und Override-Notation
+
+## Skalen-Mapping
+Wenn in der Konfiguration unter `sequences` ein `scale` angegeben ist, werden die Noten automatisch gemäß Mapping aus `config/scales.yaml` mit Vorzeichen (#/b) versehen.
+
+Beispiel `config/scales.yaml`:
+```yaml
+Gmajor:
+  F: '#'
+Fminor:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+```
+
+## Override-Notation
+Um das Standard-Vorzeichen aus dem Skalen-Mapping zu überschreiben, kann folgende Notation verwendet werden:
+- `F!4` → F4 (kein Vorzeichen, Override)
+- `F#4` → F#4 (explizites #)
+- `Fb4` → Fb4 (explizites b)
+
+**Beispiel-Konfiguration:**
+```yaml
+sequences:
+  scale: Gmajor
+  notes:
+    - "F4 G4 A4"    # F wird zu F#4
+    - "F!4 G4"      # F! wird zu F4 (Override: kein #)
+```
+
+## Testabdeckung
+Die Logik ist durch Unit-Tests in `test_scales.py` abgedeckt:
+- Standard-Mapping und Override werden getestet (siehe `test_gmajor_default_and_override`, `test_fminor_default_and_override`).
+
+## Beispiel für eigene Skalen
+Erweitere `config/scales.yaml` nach Bedarf um weitere Skalen und deren Noten-Mapping.
 # Intonation Trainer
 
 [![Run Tests](https://github.com/u35tpus/tuner/actions/workflows/tests.yml/badge.svg)](https://github.com/u35tpus/tuner/actions/workflows/tests.yml)
