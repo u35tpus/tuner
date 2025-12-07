@@ -58,6 +58,13 @@ import wave
 
 
 # ------------------------- Utilities ---------------------------------
+def print_red(text):
+    """Print text in red color using ANSI escape codes."""
+    RED = '\033[91m'
+    RESET = '\033[0m'
+    print(f"{RED}{text}{RESET}")
+
+
 NOTE_BASE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
 
@@ -373,7 +380,7 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
                 exercises.append(('sequence', notes_with_dur))
             else:
                 error_msg = notes_with_dur[1] if notes_with_dur and len(notes_with_dur) == 2 else "Unknown error"
-                print(f'Warning: {error_msg}')
+                print_red(f'Warning: {error_msg}')
         return exercises
     
     # Handle list format (simple strings, backward compatible)
@@ -386,7 +393,7 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
                 exercises.append(('sequence', notes_with_dur))
             else:
                 error_msg = notes_with_dur[1] if notes_with_dur and len(notes_with_dur) == 2 else "Unknown error"
-                print(f'Warning: {error_msg}')
+                print_red(f'Warning: {error_msg}')
         else:
             # Comma-separated format (backward compatible, no durations)
             note_names = [n.strip() for n in seq_str.split(',')]
