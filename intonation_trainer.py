@@ -282,11 +282,12 @@ def parse_abc_sequence(abc_str, default_length=1.0):
     frame = inspect.currentframe()
     while frame:
         if 'sequences_cfg' in frame.f_locals:
-            scale_name = frame.f_locals['sequences_cfg'].get('scale', None)
+            cfg = frame.f_locals['sequences_cfg']
+            if isinstance(cfg, dict):
+                scale_name = cfg.get('scale', None)
             break
         frame = frame.f_back
     if scale_name:
-        # Lade Skalen-Mapping aus config/scales.yaml
         try:
             scales_cfg = parse_yaml('config/scales.yaml')
             scale_map = scales_cfg.get(scale_name, {})
@@ -550,7 +551,9 @@ def build_final_list(cfg: dict, args) -> tuple:
             )
             exercises += triads
 
-    random.shuffle(exercises)
+    # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
+    if not sequences_cfg:
+        random.shuffle(exercises)
     # timing
     note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
     pause_between_reps = cfg.get('timing', {}).get('pause_between_reps', 1.0)
@@ -591,14 +594,19 @@ def build_final_list(cfg: dict, args) -> tuple:
             else:
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
-        else:
+        elif sequences_cfg:
+            # Blockweise Wiederholung: Jede Sequenz n-mal hintereinander
+            final_list = []
             for ex in exercises:
-                if exercises_count is not None and len(final_list) >= exercises_count:
-                    break
+                for _ in range(repetitions_per_exercise_cfg):
+                    final_list.append(ex)
+        else:
+            # Standardverhalten für Skalen/Intervalle/Triaden
+            for ex in exercises:
                 for _ in range(actual_reps):
                     final_list.append(ex)
-                    if exercises_count is not None and len(final_list) >= exercises_count:
-                        break
+            if exercises_count is not None and len(final_list) > exercises_count:
+                final_list = final_list[:exercises_count]
 
     estimated_duration = len(final_list) * time_per_exercise
 
@@ -1039,7 +1047,13 @@ def main():
             else:
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
+        elif sequences_cfg:
+            # Blockwise repetition for sequences: each sequence repeated n times before moving to next
+            for ex in exercises:
+                for _ in range(repetitions_per_exercise_cfg):
+                    final_list.append(ex)
         else:
+            # For intervals/triads, use duration-based filling
             total_time = 0.0
             while True:
                 for ex in exercises:
