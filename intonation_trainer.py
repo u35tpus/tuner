@@ -961,6 +961,10 @@ def main():
             print('No valid sequences found in config. Exiting.')
             return
         print(f'Loaded {len(exercises)} sequences from config')
+        # Feature: combine_sequences_to_one (default true)
+        combine_sequences_to_one = True
+        if isinstance(sequences_cfg, dict):
+            combine_sequences_to_one = sequences_cfg.get('combine_sequences_to_one', True)
     else:
         # Normal mode: generate exercises from scale and content
         scale_cfg = cfg.get('scale', {})
@@ -1062,6 +1066,10 @@ def main():
             # Blockwise repetition for sequences: each sequence repeated n times before moving to next
             for ex in exercises:
                 for _ in range(repetitions_per_exercise_cfg):
+                    final_list.append(ex)
+            # Am Ende alle sequences einmal in Originalreihenfolge anhängen
+            if combine_sequences_to_one:
+                for ex in exercises:
                     final_list.append(ex)
         else:
             # For intervals/triads, use duration-based filling
