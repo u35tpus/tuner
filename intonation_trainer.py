@@ -1,3 +1,14 @@
+def preparse_abc_notes(abc_str, default_length=1.0):
+    """Pre-Parsing: Check each note in ABC string before main parsing. Returns error if any note fails."""
+    original_str = abc_str
+    abc_str = abc_str.replace('|', ' ')
+    note_strs = [n.strip() for n in abc_str.split() if n.strip()]
+    for i, note_str in enumerate(note_strs):
+        parsed = parse_abc_note_with_duration(note_str, default_length)
+        if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
+            error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
+            return (None, f"Pre-parsing error: Note '{note_str}' at position {i+1} in sequence '{original_str}' did not pass pre-check. Reason: {error_msg}")
+    return True
 #!/usr/bin/env python3
 """
 Intonation Trainer – Scale-Aware Random Interval & Triad Generator (CLI)
@@ -250,26 +261,24 @@ def parse_abc_sequence(abc_str, default_length=1.0):
         List of (midi_number, duration) tuples (or ('rest', duration) for rests)
         or tuple (None, error_message) if parsing fails
     """
+    # Pre-parsing check
+    precheck = preparse_abc_notes(abc_str, default_length)
+    if precheck is not True:
+        return precheck
     original_str = abc_str
-    # Remove all bar line characters
     abc_str = abc_str.replace('|', ' ')
-    # Split by whitespace and filter empty strings
     note_strs = [n.strip() for n in abc_str.split() if n.strip()]
-    
     if not note_strs:
         return (None, f"No notes found in ABC sequence '{original_str}'")
-    
     notes_with_durations = []
     for i, note_str in enumerate(note_strs):
         parsed = parse_abc_note_with_duration(note_str, default_length)
         if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
-            # Error occurred
             error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
             position_info = f"at position {i+1} ('{note_str}')"
             context = " ".join(note_strs[max(0,i-1):min(len(note_strs),i+2)])
             return (None, f"Failed to parse ABC sequence '{original_str}' {position_info}.\nError: {error_msg}\nContext: ...{context}...")
         notes_with_durations.append(parsed)
-    
     return notes_with_durations
 
 

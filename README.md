@@ -236,11 +236,27 @@ python3 intonation_trainer.py config_template.yaml --output my_session --verbose
 -- Audio-Rendering/MP3-Konvertierung wurde entfernt; das Tool erzeugt nur MIDI-Dateien. Externe Tools wie `ffmpeg` oder `fluidsynth` sind nicht mehr benötigt.
 - `pydub` ist optional; bei manchen Python-Builds fehlen native Extensions (z. B. `audioop`) — dann verwendet das Skript die reine-Numpy/WAV-Pipeline.
 
-**Weiteres / Entwicklung**
-- Mögliche Erweiterungen:
-  - CLI-Flag `--exercises-count` (derzeit nur YAML)
-  - Stereo-Ausgabe / bessere Instrumentenauswahl aus SoundFont
-  - LUFS-Normalisierung via spezialisierter Bibliothek
+## Fehlerbehandlung und Pre-Parsing von ABC-Sequenzen
+
+Vor dem eigentlichen Parsing einer ABC-Sequenz wird jetzt ein Pre-Parsing-Check durchgeführt. Dabei werden alle Noten einzeln geprüft. Falls eine Note nicht geparst werden kann, wird eine klare Fehlermeldung ausgegeben, die die problematische Note und deren Position nennt.
+
+**Beispiel für Pre-Parsing-Fehler:**
+
+```python
+result = parse_abc_sequence("C4 D4 X4 F#4")
+if result[0] is None:
+    print(result[1])
+# Ausgabe:
+# Pre-parsing error: Note 'X4' at position 3 in sequence 'C4 D4 X4 F#4' did not pass pre-check. Reason: Invalid note format 'X4' (expected format: C4, F#3, or Bb4)
+```
+
+**Validierung in Unit-Tests:**
+
+Siehe `test_abc_preparse.py` für Unit-Tests, die sicherstellen, dass fehlerhafte Noten korrekt erkannt und gemeldet werden.
+
+**Hinweis:**
+- Die Pre-Parsing-Prüfung erfolgt automatisch bei jedem Aufruf von `parse_abc_sequence()`.
+- Die Fehlermeldung enthält immer die Note, die nicht geparst werden konnte, deren Position und den Grund.
 
 ---
 
