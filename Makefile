@@ -32,10 +32,10 @@ install:
 	@echo "Dependencies installed."
 
 test:
-	python3 -m unittest discover -s . -p "test_*.py" -q
+	python3 -m unittest discover -s test -p "test_*.py" -q
 
 test-verbose:
-	python3 -m unittest discover -s . -p "test_*.py" -v
+	python3 -m unittest discover -s test -p "test_*.py" -v
 
 test-unit:
 	python3 -m unittest test_intonation_trainer test_abc_notation test_coverage -v
@@ -44,7 +44,7 @@ test-integration:
 	python3 -m unittest test_integration test_intonation_trainer.TestIntegration test_intonation_trainer.TestSessionMIDIGeneration -v
 
 coverage:
-	coverage run -m unittest discover -s . -p "test_*.py" -q
+	coverage run -m unittest discover -s test -p "test_*.py" -q
 	coverage report -m
 	coverage html
 	@echo "Coverage report generated in htmlcov/index.html"
