@@ -1,0 +1,20 @@
+output:
+  filename: "VocalRangeExample_{date}.mid"
+  format: mid
+  normalize_lufs: -16
+
+vocal_range:
+  lowest_note: A2
+  highest_note: C4
+
+max_note_chain_length: 5      # Maximale Länge einer Notenkette
+max_interval_length: 7        # Maximale Intervallgröße zwischen zwei Noten (Halbtöne)
+num_note_chains: 20           # Anzahl der generierten Notenketten
+
+repetitions_per_exercise: 2
+max_duration: 120
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
