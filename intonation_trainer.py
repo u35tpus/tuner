@@ -1152,10 +1152,16 @@ def main():
                     if seq and isinstance(seq[0], tuple):
                         # New format: list of (midi, duration) tuples
                         for midi_note, dur in seq:
-                            midi_note = int(midi_note)
-                            ticks = secs_to_ticks(dur)
-                            track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
-                            track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
+                            if midi_note == 'rest':
+                                # For rests, just add silence (time passes with no note events)
+                                ticks = secs_to_ticks(dur)
+                                # Add a dummy meta message to advance time
+                                track.append(mido.MetaMessage('track_name', name='', time=ticks))
+                            else:
+                                midi_note = int(midi_note)
+                                ticks = secs_to_ticks(dur)
+                                track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
+                                track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
                     else:
                         # Old format: list of MIDI ints, use default note_dur
                         notes = [int(n) for n in seq]
