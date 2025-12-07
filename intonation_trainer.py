@@ -983,14 +983,20 @@ def main():
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
         else:
-            # Normal mode: repeat each exercise actual_reps times, up to max exercises if set
+            # Blockweises Wiederholen: Jede Sequenz wird repetitions_per_exercise-mal wiederholt, dann die nächste
+            total_time = 0.0
             for ex in exercises:
-                if exercises_count is not None and len(final_list) >= exercises_count:
-                    break
                 for _ in range(actual_reps):
-                    final_list.append(ex)
                     if exercises_count is not None and len(final_list) >= exercises_count:
                         break
+                    if total_time + time_per_exercise > max_duration_seconds:
+                        break
+                    final_list.append(ex)
+                    total_time += time_per_exercise
+                if exercises_count is not None and len(final_list) >= exercises_count:
+                    break
+                if total_time + time_per_exercise > max_duration_seconds:
+                    break
     
     # Calculate estimated final duration
     estimated_duration = len(final_list) * time_per_exercise
