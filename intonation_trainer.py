@@ -966,43 +966,72 @@ def main():
         if isinstance(sequences_cfg, dict):
             combine_sequences_to_one = sequences_cfg.get('combine_sequences_to_one', True)
     else:
-        # Normal mode: generate exercises from scale and content
+        # Feature: Note-Chains aus vocal_range, wenn weder scale noch sequences im Config stehen
         scale_cfg = cfg.get('scale', {})
-        scale_name = scale_cfg.get('name', 'scale')
-        if 'notes' in scale_cfg and scale_cfg['notes']:
-            custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
-            pool = [n for n in custom_notes if lowest <= n <= highest]
-            scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
+        sequences_cfg = cfg.get('sequences', None)
+        if not scale_cfg and not sequences_cfg:
+            # Hole Parameter
+            vocal = cfg.get('vocal_range', {})
+            lowest = note_name_to_midi(vocal.get('lowest_note', 'A3'))
+            highest = note_name_to_midi(vocal.get('highest_note', 'A4'))
+            max_note_chain_length = cfg.get('max_note_chain_length', 5)
+            max_interval_length = cfg.get('max_interval_length', 7)
+            num_chains = cfg.get('num_note_chains', 20)
+            # Erzeuge alle möglichen Noten im Bereich
+            pool = list(range(lowest, highest+1))
+            # Generiere Note-Chains
+            exercises = []
+            for _ in range(num_chains):
+                chain_len = random.randint(2, max_note_chain_length)
+                chain = []
+                # Starte mit zufälliger Note
+                note = random.choice(pool)
+                chain.append(note)
+                for _ in range(chain_len-1):
+                    # Erlaube nur Noten im Bereich und mit Intervallbegrenzung
+                    candidates = [n for n in pool if abs(n-note) <= max_interval_length and n != note]
+                    if not candidates:
+                        break
+                    note = random.choice(candidates)
+                    chain.append(note)
+                exercises.append(('sequence', [(n, 1.0) for n in chain]))
         else:
-            root = note_name_to_midi(scale_cfg.get('root', 'A3'))
-            stype = scale_cfg.get('type', 'natural_minor')
-            pool = expand_scale_over_range(root, stype, lowest, highest)
-            scale_single_octave = build_scale_notes(root, stype)
+            # Normal mode: generate exercises from scale and content
+            scale_name = scale_cfg.get('name', 'scale')
+            if 'notes' in scale_cfg and scale_cfg['notes']:
+                custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
+                pool = [n for n in custom_notes if lowest <= n <= highest]
+                scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
+            else:
+                root = note_name_to_midi(scale_cfg.get('root', 'A3'))
+                stype = scale_cfg.get('type', 'natural_minor')
+                pool = expand_scale_over_range(root, stype, lowest, highest)
+                scale_single_octave = build_scale_notes(root, stype)
 
-        content = cfg.get('content', {})
-        intervals_cfg = content.get('intervals', {})
-        triads_cfg = content.get('triads', {})
+            content = cfg.get('content', {})
+            intervals_cfg = content.get('intervals', {})
+            triads_cfg = content.get('triads', {})
 
-        max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
-        max_interval = 12
-        include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
-        ascending = intervals_cfg.get('ascending', True)
-        descending = intervals_cfg.get('descending', True)
+            max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
+            max_interval = 12
+            include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
+            ascending = intervals_cfg.get('ascending', True)
+            descending = intervals_cfg.get('descending', True)
 
-        # Generate exercises from config
-        exercises = []
-        exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
-        if triads_cfg.get('enabled', True):
-            tri_types = triads_cfg.get('types', ['major','minor','diminished'])
-            triads = generate_triads(
-                scale_single_octave,
-                pool,
-                include_inversions=triads_cfg.get('include_inversions', True),
-                triad_types=tri_types,
-                low=lowest,
-                high=highest,
-            )
-            exercises += triads
+            # Generate exercises from config
+            exercises = []
+            exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
+            if triads_cfg.get('enabled', True):
+                tri_types = triads_cfg.get('types', ['major','minor','diminished'])
+                triads = generate_triads(
+                    scale_single_octave,
+                    pool,
+                    include_inversions=triads_cfg.get('include_inversions', True),
+                    triad_types=tri_types,
+                    low=lowest,
+                    high=highest,
+                )
+                exercises += triads
 
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
     if not sequences_cfg:

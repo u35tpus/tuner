@@ -190,147 +190,34 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
   - `soundfont_path`: Pfad zur `.sf2` Datei, z. B. `piano/SalamanderGrandPiano.sf2`
   - `velocity`: MIDI-Velocity (0–127)
 
-**CLI-Optionen (vollständig)**
-- `python3 intonation_trainer.py config.yaml [OPTIONS]`
+# Note-Chains aus vocal_range
 
-- Positionale Argumente:
-  - `config`: Pfad zur YAML-Konfigurationsdatei
+Wenn weder `scale` noch `sequences` in der YAML-Konfiguration angegeben sind, werden zufällige Notenketten (Note-Chains) aus dem Bereich `vocal_range` generiert.
 
-- Optionen:
-  - `--output`, `-o` : Überschreibt den Ausgabedateinamen. Beispiel: `--output my_session.mid`
-  - `--dry-run` : Erzeugt keine Audioausgabe, sondern schreibt stattdessen ein Text-Log der generierten Übungen (human-readable). Praktisch zum Review.
-  - `--verbose` : Zusätzlich zur Audioausgabe immer ein Text-Log schreiben.
-  - `--text-file` : Expliziter Pfad für das Text-Log (überschreibt Standardname). Wird mit `--dry-run` oder `--verbose` verwendet.
-
-  - `--max-duration` : Maximale Sitzungsdauer in Sekunden (überschreibt `max_duration` in der YAML, falls explizit angegeben). Default: `600`.
-  - `--from-text` : Statt die Übungen aus der Config zu generieren, lade sie aus einem zuvor erzeugten Text-Log und rendere daraus die Session.
-
-Wichtig: Es gibt aktuell keine CLI-Flag `--exercises-count`; `exercises_count` wird über die YAML-Konfiguration gesteuert.
-
-**Beispiele**
-
-1) Dry-run: Erzeuge nur Text-Log mit ~3 Minuten Inhalt (über `--max-duration`):
-
-```bash
-. .venv/bin/activate
-python3 intonation_trainer.py config_template.yaml --dry-run --max-duration 180 --text-file test_3min.txt
-```
-
-2) Erzeuge Session mit expliziten Note-Sequenzen in ABC-Notation mit Notenlängen:
-
+**Konfigurationsbeispiel:**
 ```yaml
-# in config_sequences.yaml
-sequences:
-  signature: "4/4"
-  unit_length: 1.0  # Basis-Notenlänge (1.0 = Viertelnote)
-  notes:
-    - "|C4 D42 E4 F4|"       # C, D (doppelt), E, F
-    - "|G3 C4 A4/2 D3|"      # G, C (normal), A (halbe), D (normal)
-    - "|G#2 C4 E3|"          # Alle normal
-    - "|G3 C4 A4 D3|"        # Alle normal
-    - "|G#2 C4 E3 F#3 D#3|"  # Alle normal
-
-repetitions_per_exercise: 3    # Jede Sequenz 3x wiederholt
-
-timing:
-  note_duration: 1.0          # Fallback für non-sequence exercises
-  pause_between_reps: 1.0
-
-sound:
-  method: soundfont
-  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+vocal_range:
+  lowest_note: A2
+  highest_note: C4
+max_note_chain_length: 5      # Maximale Länge einer Notenkette (Standard: 5)
+max_interval_length: 7        # Maximale Intervallgröße zwischen zwei Noten (in Halbtönen, Standard: 7)
+num_note_chains: 20           # Anzahl der generierten Notenketten (Standard: 20)
 ```
 
-Dann ausführen:
+- Es werden zufällige Notenketten von 2 bis `max_note_chain_length` Noten erzeugt.
+- Jede Note in einer Kette liegt im Bereich von `lowest_note` bis `highest_note` (inklusive).
+- Der Abstand zwischen zwei aufeinanderfolgenden Noten ist durch `max_interval_length` begrenzt.
+- Die Richtung der Noten ist beliebig (aufsteigend/absteigend/mischung).
+- Die generierten Ketten werden als Übungssequenzen ausgegeben (MIDI/Text).
 
-```bash
-. .venv/bin/activate
-python3 intonation_trainer.py config_sequences.yaml
+**Beispielausgabe:**
+```
+A2 C3 B2 F#3 C4
+C4 B3 G#3 A2
+...
 ```
 
-Das erzeugt Audioausgabe mit den definierten Sequenzen.
-
-3) Erzeuge Session mit Pausen verschiedener Dauer (siehe `config_rests_example.yaml`):
-
-```bash
-. .venv/bin/activate
-python3 intonation_trainer.py config_rests_example.yaml
-```
-
-Dieses Beispiel demonstriert:
-- Atempausen in Melodien (`z` für Viertelpause, `z2` für halbe Pause)
-- Rhythmische Phrasen mit kurzen Pausen (`z/2` für Achtelpause)
-- Explizite Pausenlängen (`z:1.5` für punktierte Viertelpause)
-- Pausen innerhalb von Takten mit Taktstrichen
-- Alternative Pausennotationen (`z`, `Z`, `x` sind alle äquivalent)
-
-4) Erzeuge Session basierend auf `exercises_count` in der YAML (zuerst `config_template.yaml` bearbeiten):
-
-```yaml
-# in config_template.yaml
-exercises_count: 120
-```
-
-Dann ausführen:
-
-```bash
-. .venv/bin/activate
-python3 intonation_trainer.py config_template.yaml
-```
-
-4) Rendern aus einem vorhandenen Text-Log (z. B. `test_3min.txt`):
-
-```bash
-. .venv/bin/activate
-python3 intonation_trainer.py config_template.yaml --from-text test_3min.txt --output from_text_session.mid
-```
-
-5) Expliziter Output-Name & verbose Log
-
-```bash
-. .venv/bin/activate
-python3 intonation_trainer.py config_template.yaml --output my_session --verbose
-```
-
-(Gibt `my_session.mid` aus und schreibt `my_session.txt` mit den einzelnen Übungen.)
-
-**Text-Log Format**
-- Das Text-Log ist für Menschen lesbar und enthält Einträge wie:
-
-```
-0001: INTERVAL  C#3 (49) -> A#2 (46)
-0002: TRIAD     A3(57) C#4(61) E4(64)
-```
-
-- Du kannst solche Logs wieder mit `--from-text` laden und als Audio rendern.
-
-**Troubleshooting & Hinweise**
-- Wenn `fluidsynth` und ein SoundFont (`.sf2`) vorhanden sind, nutzt das Skript `fluidsynth` zur MIDI-zu-WAV-Konvertierung. Pfad zu `.sf2` wird von `sound.soundfont_path` in der YAML gesteuert.
-- Falls `fluidsynth` nicht vorhanden ist oder das Rendering fehlschlägt, fällt das Skript auf einen eingebauten WAV-Synth zurück (mehrere reine Sinustöne, mono).
--- Audio-Rendering/MP3-Konvertierung wurde entfernt; das Tool erzeugt nur MIDI-Dateien. Externe Tools wie `ffmpeg` oder `fluidsynth` sind nicht mehr benötigt.
-- `pydub` ist optional; bei manchen Python-Builds fehlen native Extensions (z. B. `audioop`) — dann verwendet das Skript die reine-Numpy/WAV-Pipeline.
-
-## Fehlerbehandlung und Pre-Parsing von ABC-Sequenzen
-
-Vor dem eigentlichen Parsing einer ABC-Sequenz wird jetzt ein Pre-Parsing-Check durchgeführt. Dabei werden alle Noten einzeln geprüft. Falls eine Note nicht geparst werden kann, wird eine klare Fehlermeldung ausgegeben, die die problematische Note und deren Position nennt.
-
-**Beispiel für Pre-Parsing-Fehler:**
-
-```python
-result = parse_abc_sequence("C4 D4 X4 F#4")
-if result[0] is None:
-    print(result[1])
-# Ausgabe:
-# Pre-parsing error: Note 'X4' at position 3 in sequence 'C4 D4 X4 F#4' did not pass pre-check. Reason: Invalid note format 'X4' (expected format: C4, F#3, or Bb4)
-```
-
-**Validierung in Unit-Tests:**
-
-Siehe `test_abc_preparse.py` für Unit-Tests, die sicherstellen, dass fehlerhafte Noten korrekt erkannt und gemeldet werden.
-
-**Hinweis:**
-- Die Pre-Parsing-Prüfung erfolgt automatisch bei jedem Aufruf von `parse_abc_sequence()`.
-- Die Fehlermeldung enthält immer die Note, die nicht geparst werden konnte, deren Position und den Grund.
+Siehe auch die Unit-Tests in `test_vocal_range_note_chains.py` für Details zur Generierung und Validierung.
 
 ---
 
