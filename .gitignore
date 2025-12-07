@@ -12,5 +12,5 @@ build/
 logs/
 drylog.txt
 *.mid
-*.txtgit 
+*.txt
 *.m4a
