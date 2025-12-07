@@ -12,7 +12,8 @@ class TestTracksConfigs(unittest.TestCase):
         Fails if the script returns a non-zero exit code.
         """
         # Get the root of the workspace
-        workspace_root = os.path.dirname(os.path.abspath(__file__))
+        # Go up one directory from test/ to project root
+        workspace_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         tracks_dir = os.path.join(workspace_root, 'tracks')
         
         # Find all .yaml files recursively
