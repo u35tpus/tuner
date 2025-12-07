@@ -112,6 +112,29 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
     - `C42` oder `C4*2` — doppelte Länge (Halbnote bei unit_length=1.0)
     - `C4/2` — halbe Länge (Achtelnote bei unit_length=1.0)
     - `C4/4` — Viertel der Länge (Sechzehntelnote)
+    - `C4:1.5` — explizite Dauer in Beats (z.B. punktierte Viertelnote)
+  
+  - **Pausen (Rests) in Sequenzen**:
+    - `z` — Pause mit Standarddauer (entspricht `unit_length`)
+    - `z2` — halbe Pause (doppelte Länge)
+    - `z4` — ganze Pause (vierfache Länge)
+    - `z/2` — Achtelpause (halbe Länge)
+    - `z/4` — Sechzehntelpause (viertel Länge)
+    - `z:1.5` — Pause mit expliziter Dauer in Beats
+    - `z*2` — Pause mit Multiplikations-Syntax
+    - `Z` oder `x` — Alternative Notation für Pausen (äquivalent zu `z`)
+    
+    **Beispiele mit Pausen**:
+    ```yaml
+    sequences:
+      signature: "4/4"
+      unit_length: 1.0
+      notes:
+        - "C4 D4 E4 z E4 F4 G4 z2"           # Melodie mit Atempausen
+        - "G4 z/2 G4 z/2 A4 z/2 B4"         # Rhythmische Phrase mit kurzen Pausen
+        - "| C4 D4 | z E4 F4 | z2 |"        # Pausen innerhalb von Takten
+        - "C4 z:0.5 D4 z:1.5 E4"            # Explizite Pausenlängen
+    ```
   
   - **Einfaches Format** (komma-getrennt, rückwärts-kompatibel, ohne Notenlängen):
     ```yaml
@@ -227,7 +250,21 @@ python3 intonation_trainer.py config_sequences.yaml
 
 Das erzeugt Audioausgabe mit den definierten Sequenzen.
 
-3) Erzeuge Session basierend auf `exercises_count` in der YAML (zuerst `config_template.yaml` bearbeiten):
+3) Erzeuge Session mit Pausen verschiedener Dauer (siehe `config_rests_example.yaml`):
+
+```bash
+. .venv/bin/activate
+python3 intonation_trainer.py config_rests_example.yaml
+```
+
+Dieses Beispiel demonstriert:
+- Atempausen in Melodien (`z` für Viertelpause, `z2` für halbe Pause)
+- Rhythmische Phrasen mit kurzen Pausen (`z/2` für Achtelpause)
+- Explizite Pausenlängen (`z:1.5` für punktierte Viertelpause)
+- Pausen innerhalb von Takten mit Taktstrichen
+- Alternative Pausennotationen (`z`, `Z`, `x` sind alle äquivalent)
+
+4) Erzeuge Session basierend auf `exercises_count` in der YAML (zuerst `config_template.yaml` bearbeiten):
 
 ```yaml
 # in config_template.yaml

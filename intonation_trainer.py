@@ -853,17 +853,25 @@ def main():
                     notes_with_dur = ex[1]
                     # Handle both old format (just MIDI numbers) and new format (with durations)
                     if notes_with_dur and isinstance(notes_with_dur[0], tuple):
-                        # New format: list of (midi, duration) tuples
+                        # New format: list of (midi, duration) tuples or ('rest', duration) for rests
                         # Include duration in beats and ticks
                         if ticks_per_beat is None:
                             ticks_per_beat = 480
                         parts = []
-                        for n, d in notes_with_dur:
-                            name = midi_to_note_name(n)
-                            midi_num = int(n)
-                            beats = float(d)
-                            ticks = int(beats * ticks_per_beat)
-                            parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                        for item in notes_with_dur:
+                            if item[0] == 'rest':
+                                # Rest notation
+                                beats = float(item[1])
+                                ticks = int(beats * ticks_per_beat)
+                                parts.append(f"REST:d{beats:.2f}:t{ticks}")
+                            else:
+                                # Regular note
+                                n, d = item
+                                name = midi_to_note_name(n)
+                                midi_num = int(n)
+                                beats = float(d)
+                                ticks = int(beats * ticks_per_beat)
+                                parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
                         names = ' '.join(parts)
                     else:
                         # Old format: just MIDI numbers
