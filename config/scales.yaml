@@ -2,10 +2,10 @@
 # Beispiel: Gmajor -> F ist F#, alle anderen Noten wie notiert
 #           Fminor -> Bb, Ab, Db, Eb
 
+CMajor:
+  # keine Vorzeichen
 Gmajor:
   F: '#'
-Fmajor:
-  B: 'b'
 Dmajor:
   F: '#'
   C: '#'
@@ -24,16 +24,126 @@ Bmajor:
   G: '#'
   D: '#'
   A: '#'
-Fminor:
+Fsharpmajor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+  A: '#'
+  E: '#'
+Csharpmajor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+  A: '#'
+  E: '#'
+  B: '#'
+Fmajor:
+  B: 'b'
+Bbmajor:
+  B: 'b'
+  E: 'b'
+Ebmajor:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+Abmajor:
   B: 'b'
   E: 'b'
   A: 'b'
   D: 'b'
-Abmajor:
+Dbmajor:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+  G: 'b'
+Gbmajor:
   B: 'b'
   E: 'b'
   A: 'b'
   D: 'b'
   G: 'b'
   C: 'b'
-# ... weitere Skalen nach Bedarf
+Cbmajor:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+  G: 'b'
+  C: 'b'
+  F: 'b'
+
+Am:
+  # keine Vorzeichen
+Em:
+  F: '#'
+Bm:
+  F: '#'
+  C: '#'
+Fsharpminor:
+  F: '#'
+  C: '#'
+  G: '#'
+Csharpminor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+Gsharpminor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+  A: '#'
+Dsharpminor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+  A: '#'
+  E: '#'
+Asharpminor:
+  F: '#'
+  C: '#'
+  G: '#'
+  D: '#'
+  A: '#'
+  E: '#'
+  B: '#'
+Dm:
+  B: 'b'
+Gm:
+  B: 'b'
+  E: 'b'
+Cm:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+Fm:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+Bbm:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+  G: 'b'
+Ebm:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+  G: 'b'
+  C: 'b'
+Abm:
+  B: 'b'
+  E: 'b'
+  A: 'b'
+  D: 'b'
+  G: 'b'
+  C: 'b'
+  F: 'b'
