@@ -14,7 +14,8 @@ class TestRepetitionsPerExercise(unittest.TestCase):
                 'notes': [
                     "C4 D4 E4",
                     "F4 G4 A4"
-                ]
+                ],
+                'combine_sequences_to_one': False
             },
             'timing': {'note_duration': 1.0, 'pause_between_reps': 1.0},
             'repetitions_per_exercise': 2,
