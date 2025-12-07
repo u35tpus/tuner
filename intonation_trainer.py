@@ -926,7 +926,9 @@ def main():
             )
             exercises += triads
 
-    random.shuffle(exercises)
+    # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
+    if not sequences_cfg:
+        random.shuffle(exercises)
     final_list = []
     # Calculate actual repetitions based on max_duration target
     note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
