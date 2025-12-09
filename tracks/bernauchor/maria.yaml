@@ -13,11 +13,11 @@ sequences:
   scale: Gmajor  # Automatisches Mapping: F wird zu F#
   combine_sequences_to_one: true
   notes:
-    - "B3| E4:1.5 F4:0.5 G4 B4 | G4 F4:0.5 E4:0.5 F4:2 |"  # Maria durch ein Dornwald ging
+    - "| B3| E4:1.5 F4:0.5 G4 B4 | G4 F4:0.5 E4:0.5 F4:2 |"  # Maria durch ein Dornwald ging
     - "| E4 E4:0.5 E4:0.5 F4:0.5 E4:0.5 D4 | G4:4"           # Kyrie eleison
     - "| G4:0.5 A4:0.5 | G4:1.5 F4:0.5 G4 E4 | F4:1.5 E4:0.5 F4 | " # Maria durch ein Dornwald ging
     - "| B3 | E4:1.5 D#4:0.5 E4:0.5 E4:0.5 E4:0.5 E4:0.5 | D#4 B3:0.5 B3:0.5 B3 D#4 |" # der har in sieben Jahren kein Laub getragen
-    - "| E4:1.5 D#4:0.5 E4 D#4| E4 F4 E4:2 |" # Jesus und Maria
+    - "| E4:1.5 D#4:0.5 E4 D#4| E4 E4 E4:2 |" # Jesus und Maria
 
 timing:
   note_duration: 1.0
