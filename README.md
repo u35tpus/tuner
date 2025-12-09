@@ -161,6 +161,31 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
 - `content` (optional, wird ignoriert wenn `sequences` definiert):
   - `intervals`: Einstellungen für Intervall-Generierung (ascending/descending, max_interval...)
   - `triads`: `enabled`, `include_inversions`, `types` (z. B. `[major, minor, diminished]`)
+  - `rhythm_vocal`: Rhythmus-Vokalübungen mit einfachen Notenmustern
+    - `enabled`: `true` zum Aktivieren (Standard: `false`)
+    - `base_note`: Einzelne Note für alle Rhythmusübungen (z.B. `C4`)
+    - `num_exercises`: Anzahl unterschiedlicher Rhythmusmuster (Standard: `10`)
+    - `max_pattern_length`: Maximale Anzahl Noten pro Muster (Standard: `8`)
+    
+    **Beispiel**:
+    ```yaml
+    content:
+      intervals:
+        enabled: false
+      triads:
+        enabled: false
+      rhythm_vocal:
+        enabled: true
+        base_note: C4
+        num_exercises: 12
+        max_pattern_length: 8
+    ```
+    
+    Rhythmus-Vokalübungen fokussieren sich auf Rhythmusmuster mit einer einzelnen Note,
+    um Rhythmusgefühl und Stimmkontrolle zu trainieren. Die generierten Muster umfassen:
+    - Einfache Muster: Viertelnoten, Achtelnoten, Halbe Noten
+    - Komplexe Muster: Punktierte Noten, Synkopen, Sechzehntelnoten
+    - Gemischte Rhythmen zur Verbesserung der rhythmischen Vielfalt
 
 - `timing`:
   - `note_duration`: Länge eines einzelnen Tons in Sekunden

@@ -1,0 +1,40 @@
+output:
+  filename: "RhythmVocalExercise_{date}.mid"
+  format: mid
+  normalize_lufs: -16
+
+# Rhythm vocal exercises focus on rhythm patterns with a single base note
+# to help practice rhythm and vocal control
+
+scale:
+  root: C4
+  type: major
+
+vocal_range:
+  lowest_note: A3
+  highest_note: C4
+
+content:
+  intervals:
+    enabled: false
+  triads:
+    enabled: false
+  rhythm_vocal:
+    enabled: true
+    base_note: C4          # Single note to use for all rhythm exercises
+    num_exercises: 12      # Number of different rhythm patterns
+    max_pattern_length: 8  # Maximum notes per pattern
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.5
+  intro_beats: 4
+  intro_bpm: 120
+
+repetitions_per_exercise: 3
+max_duration: 240
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
