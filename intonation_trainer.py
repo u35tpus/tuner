@@ -1096,10 +1096,16 @@ def main():
             for ex in exercises:
                 for _ in range(repetitions_per_exercise_cfg):
                     final_list.append(ex)
-            # Am Ende alle sequences einmal in Originalreihenfolge anhängen
+            # Am Ende alle sequences als eine kombinierte Sequenz anhängen, wiederholt
             if combine_sequences_to_one:
+                # Kombiniere alle sequences zu einer einzigen
+                combined_notes = []
                 for ex in exercises:
-                    final_list.append(ex)
+                    if ex[0] == 'sequence':
+                        combined_notes.extend(ex[1])
+                combined_ex = ('sequence', combined_notes)
+                for _ in range(repetitions_per_exercise_cfg):
+                    final_list.append(combined_ex)
         else:
             # For intervals/triads, use duration-based filling
             total_time = 0.0
