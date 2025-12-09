@@ -53,5 +53,34 @@ class TestCombineSequencesToOne(unittest.TestCase):
         # Feature off: nothing appended
         self.assertEqual(len(final_list), len(exercises) * repetitions)
 
+class TestRepeatCombinedSequence(unittest.TestCase):
+    def setUp(self):
+        self.sequences = [
+            ('sequence', [(60, 1.0), (64, 1.5), (65, 0.5)]),
+            ('sequence', [(65, 0.5), (64, 0.5), (62, 1.0)]),
+            ('sequence', [(67, 4.0)])
+        ]
+        self.repetitions = 5
+
+    def test_repeat_combined_sequence(self):
+        # Simuliere die Logik aus main()
+        final_list = []
+        for ex in self.sequences:
+            for _ in range(self.repetitions):
+                final_list.append(ex)
+        # Feature: combine_sequences_to_one
+        combined_notes = []
+        for ex in self.sequences:
+            if ex[0] == 'sequence':
+                combined_notes.extend(ex[1])
+        combined_ex = ('sequence', combined_notes)
+        for _ in range(self.repetitions):
+            final_list.append(combined_ex)
+        # Die letzten N Einträge müssen die kombinierte Sequenz sein
+        for i in range(1, self.repetitions+1):
+            self.assertEqual(final_list[-i], combined_ex)
+        # Die Länge muss stimmen
+        self.assertEqual(len(final_list), len(self.sequences)*self.repetitions + self.repetitions)
+
 if __name__ == '__main__':
     unittest.main()
