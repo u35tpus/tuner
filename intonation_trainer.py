@@ -428,18 +428,39 @@ def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_
                 notes = ex[1]
                 names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
                 f.write(f"{i:04d}: TRIAD     {names}\n")
+            elif ex[0] == 'rhythm_vocal':
+                notes_with_dur = ex[1]
+                if ticks_per_beat is None:
+                    ticks_per_beat = 480
+                parts = []
+                for n, d in notes_with_dur:
+                    name = midi_to_note_name(n)
+                    midi_num = int(n)
+                    beats = float(d)
+                    ticks = int(beats * ticks_per_beat)
+                    parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                names = ' '.join(parts)
+                f.write(f"{i:04d}: RHYTHM_VOCAL  {names}\n")
             elif ex[0] == 'sequence':
                 notes_with_dur = ex[1]
                 if notes_with_dur and isinstance(notes_with_dur[0], tuple):
                     if ticks_per_beat is None:
                         ticks_per_beat = 480
                     parts = []
-                    for n, d in notes_with_dur:
-                        name = midi_to_note_name(n)
-                        midi_num = int(n)
-                        beats = float(d)
-                        ticks = int(beats * ticks_per_beat)
-                        parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                    for item in notes_with_dur:
+                        if item[0] == 'rest':
+                            # Rest notation
+                            beats = float(item[1])
+                            ticks = int(beats * ticks_per_beat)
+                            parts.append(f"REST:d{beats:.2f}:t{ticks}")
+                        else:
+                            # Regular note
+                            n, d = item
+                            name = midi_to_note_name(n)
+                            midi_num = int(n)
+                            beats = float(d)
+                            ticks = int(beats * ticks_per_beat)
+                            parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
                     names = ' '.join(parts)
                 else:
                     names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes_with_dur])
@@ -651,6 +672,57 @@ def generate_intervals(pool_notes, ascending=True, descending=True, max_interval
             seen.add(key)
             unique.append(it)
     return unique
+
+
+def generate_rhythm_vocal_exercises(base_note, num_exercises=10, max_pattern_length=8):
+    """Generate rhythm vocal exercises.
+    
+    These exercises focus on rhythm patterns using a single note or very simple
+    note variations to help practice rhythm and vocal control.
+    
+    Args:
+        base_note: MIDI note number to use as the base pitch
+        num_exercises: Number of different rhythm patterns to generate
+        max_pattern_length: Maximum number of notes in a rhythm pattern
+    
+    Returns:
+        List of ('rhythm_vocal', notes_with_durations) tuples
+    """
+    exercises = []
+    
+    # Common rhythm patterns (in beats)
+    rhythm_patterns = [
+        # Simple patterns
+        [1.0, 1.0, 1.0, 1.0],  # Quarter notes
+        [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],  # Eighth notes
+        [2.0, 2.0],  # Half notes
+        [1.0, 0.5, 0.5, 1.0, 1.0],  # Mixed
+        [0.5, 0.5, 1.0, 0.5, 0.5, 1.0],  # Syncopated
+        # More complex patterns
+        [1.5, 0.5, 1.0, 1.0],  # Dotted quarter
+        [0.5, 1.0, 0.5, 1.0, 1.0],  # Varied
+        [0.25, 0.25, 0.5, 1.0, 0.5, 0.5, 1.0],  # Sixteenth notes
+        [1.0, 1.0, 0.5, 0.5, 1.0],  # Mixed quarters and eighths
+        [2.0, 1.0, 1.0],  # Half and quarters
+        [0.5, 0.5, 0.5, 0.5, 1.0, 1.0],  # Building up
+        [1.0, 1.0, 1.0, 0.5, 0.5],  # Quarter then eighths
+        [0.75, 0.25, 1.0, 1.0, 1.0],  # Triplet feel
+        [1.0, 0.5, 0.5, 0.5, 0.5, 1.0],  # Extended pattern
+    ]
+    
+    # Select random patterns
+    selected_patterns = random.sample(rhythm_patterns, min(num_exercises, len(rhythm_patterns)))
+    
+    for pattern in selected_patterns:
+        # Limit pattern length
+        if len(pattern) > max_pattern_length:
+            pattern = pattern[:max_pattern_length]
+        
+        # Create note sequence with the same base note but varying durations
+        notes_with_dur = [(base_note, duration) for duration in pattern]
+        exercises.append(('rhythm_vocal', notes_with_dur))
+    
+    return exercises
 
 
 def generate_triads(scale_notes_single_octave_midi, pool_notes, include_inversions=True, triad_types=('major','minor','diminished'), low=None, high=None):
@@ -1011,6 +1083,7 @@ def main():
             content = cfg.get('content', {})
             intervals_cfg = content.get('intervals', {})
             triads_cfg = content.get('triads', {})
+            rhythm_vocal_cfg = content.get('rhythm_vocal', {})
 
             max_interval_name = intervals_cfg.get('max_interval', 'perfect_octave')
             max_interval = 12
@@ -1032,6 +1105,13 @@ def main():
                     high=highest,
                 )
                 exercises += triads
+            if rhythm_vocal_cfg.get('enabled', False):
+                # Generate rhythm vocal exercises
+                base_note = note_name_to_midi(rhythm_vocal_cfg.get('base_note', 'C4'))
+                num_exercises = rhythm_vocal_cfg.get('num_exercises', 10)
+                max_pattern_length = rhythm_vocal_cfg.get('max_pattern_length', 8)
+                rhythm_exercises = generate_rhythm_vocal_exercises(base_note, num_exercises, max_pattern_length)
+                exercises += rhythm_exercises
 
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
     if not sequences_cfg:
@@ -1192,6 +1272,16 @@ def main():
                     for i, n in enumerate(notes):
                         track.append(Message('note_on', note=n, velocity=velocity, time=0))
                         track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
+                    # rest between exercises
+                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+                elif ex[0] == 'rhythm_vocal':
+                    # Rhythm vocal exercises: list of (midi, duration) tuples
+                    notes_with_dur = ex[1]
+                    for midi_note, dur in notes_with_dur:
+                        midi_note = int(midi_note)
+                        ticks = secs_to_ticks(dur)
+                        track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
+                        track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
                     # rest between exercises
                     track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
                 elif ex[0] == 'sequence':
