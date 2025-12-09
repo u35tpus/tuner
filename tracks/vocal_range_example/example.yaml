@@ -7,12 +7,21 @@ vocal_range:
   lowest_note: A2
   highest_note: C4
 
-max_note_chain_length: 5      # Maximale Länge einer Notenkette
-max_interval_length: 7        # Maximale Intervallgröße zwischen zwei Noten (Halbtöne)
+max_note_chain_length: 3      # Maximale Länge einer Notenkette
+max_interval_length: 4        # Maximale Intervallgröße zwischen zwei Noten (Halbtöne)
 num_note_chains: 20           # Anzahl der generierten Notenketten
 
-repetitions_per_exercise: 2
-max_duration: 120
+repetitions_per_exercise: 8
+max_duration: 360
+
+
+timing:
+  note_duration: 2.0
+  pause_between_reps: 3.0
+  pause_between_blocks: 5.0
+  intro_beats: 4
+  intro_bpm: 120
+
 
 sound:
   method: soundfont
