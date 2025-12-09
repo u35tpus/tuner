@@ -12,7 +12,7 @@ scale:
 
 vocal_range:
   lowest_note: A3
-  highest_note: C5
+  highest_note: C4
 
 content:
   intervals:
