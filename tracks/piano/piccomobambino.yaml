@@ -11,28 +11,32 @@ sequences:
   signature: "4/4"
   unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
   scale: Fminor 
-  combine_sequences_to_one: false
+  combine_sequences_to_one: true
   notes:
-    - "| z z z A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # Вечерело
-    - "| z z z B4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # Пели вьюги
-    - "| G4:0.5 A4:0.5 | B4 A4 C5 B4 | F4 F4 A4 A4 | F4 F4 z G4:0.5 G4:0.5 | F4 F4  z |" # хоронили Магдалину цирковую балерину
-    - " C5:0.5 D5:0.5 | E5:0.5 C5:0.5 F5:0.5 E5:0.5  | B4 B4 D5 D5  | B4 B4 D5  D5:0.5 B4:1.5 | B4 "  # Piccomobambino
-    - " A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z F4:0.5 F4:0.5 |F4:0.5 F4:0.5  z z G4:0.5 A4:0.5 | B4 G4 C5 B4 | F4 F4 z z |"  # Шел и клоун
-    - " | z z F4 F4 | C5 A4 z B4:0.5 D5:0.5 | C5 F4 z D5:0.5 C5:0.5 |  B4 F4 z D5:0.5 C5:0.5 | B4 F4 z z |" # он был другом магдалины только другом не мужчиной
+    - "| z z z A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # вечерело
+    - "| z z z B4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # пели вьюги
+    - "| G4:0.5 A4:0.5 | B4 A4 C5 B4 | F4 F4 "       # хоронили Магдалину 
+    -  " A4 A4 | F4 F4 z A4:0.5 A4:0.5 | F4 F4  z |" # цирковую балерину
+    - " C5:0.5 D5:0.5 | E5:0.5 C5:0.5 F5:0.5 E5:0.5  | B4 B4 "  # провожали две подруги
+    - "D5 D5  | B4 B4 D5  D5:0.5 B4:1.5 | B4 " # две подруги акробатки
+    - " A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z F4:0.5 F4:0.5 |F4:0.5 F4:0.5  z z "  # шел и клоун плакал клоун
+    - "G4:0.5 A4:0.5 | B4 G4 C5 B4 | F4 F4 z z |" # закрывал лицо перчаткой
+    - " | z z F4 F4 | C5 A4 z B4:0.5 D5:0.5 | C5 F4 z " # он был другом магдалины 
+    - "D5:0.5 C5:0.5 |  B4 F4 z D5:0.5 C5:0.5 | B4 F4 z z |" # только другом не мужчиной
     - " | C5:0.5 F4:0.5 F4:1.5 D5:0.5 | B4:0.5 B4:0.5 B4:0.5 B4:0.5  z" # чистил ей трико бензином
-    - " E4:0.5 E4:0.5 | E5:1.5 D5:0.5  C5:0.5 B4:0.5 | A4 F4 z"
+    - " E4:0.5 E4:0.5 | E5:1.5 D5:0.5  C5:0.5 B4:0.5 | A4 F4 z" # и смеялась магдалина
 
 
 
 timing:
   note_duration: 1.0
   pause_between_reps: 1.0
-  pause_between_blocks: 0.0
+  pause_between_blocks: 1.0
   intro_beats: 4
   intro_bpm: 120
 
 # How many times each sequence should be repeated consecutively
-repetitions_per_exercise: 1
+repetitions_per_exercise: 5
 random_seed: null
 
 # Session duration limit in seconds (default 600 = 10 minutes)
