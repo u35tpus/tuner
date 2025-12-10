@@ -244,6 +244,32 @@ C4 B3 G#3 A2
 
 Siehe auch die Unit-Tests in `test_vocal_range_note_chains.py` für Details zur Generierung und Validierung.
 
+## Takt-Markierungen in Verbose-Ausgabe
+
+Bei Verwendung von `--verbose` oder `--dry-run` werden in der Text-Log-Datei automatisch Takt-Markierungen eingefügt, die anzeigen, wo neue Takte beginnen. Dies erleichtert das Verständnis der rhythmischen Struktur der Übungen.
+
+**Format der Takt-Markierungen:**
+- `|M1|` - Beginn des ersten Takts
+- `|M2|` - Beginn des zweiten Takts
+- `|M3|` - Beginn des dritten Takts
+- usw.
+
+**Beispiel-Ausgabe:**
+```
+0001: SEQUENCE  |M1| C4(60):d1.00:t480 D4(62):d1.00:t480 E4(64):d1.00:t480 F4(65):d1.00:t480 |M2| G4(67):d1.00:t480 A4(69):d1.00:t480 B4(71):d1.00:t480 C5(72):d1.00:t480
+```
+
+In diesem Beispiel (4/4-Takt):
+- Takt 1: C4, D4, E4, F4 (4 Viertelnoten = 4 Schläge)
+- Takt 2: G4, A4, B4, C5 (4 Viertelnoten = 4 Schläge)
+
+**Mit Pausen:**
+```
+0001: SEQUENCE  |M1| REST:d1.00:t480 REST:d1.00:t480 REST:d1.00:t480 C4(60):d1.00:t480 |M2| D4(62):d2.00:t960 E4(64):d2.00:t960
+```
+
+Die Takt-Markierungen basieren auf der `signature` in der Sequenz-Konfiguration (z.B. `4/4`, `3/4`, `6/8`).
+
 ---
 
 Dateien im Projekt (wichtig):

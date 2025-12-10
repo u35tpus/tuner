@@ -415,11 +415,20 @@ def midi_to_note_name(midi: int) -> str:
     return f"{name}{octave}"
 
 
-def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_name: str = 'session'):
+def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_name: str = 'session', time_signature: str = '4/4'):
+    """Write text log with measure markers based on time signature."""
     with open(path, 'w', encoding='utf8') as f:
         f.write(f"Intonation Trainer Log\n")
         f.write(f"Scale: {scale_name}\n")
+        f.write(f"Time Signature: {time_signature}\n")
         f.write(f"Generated: {len(exercises_list)} exercises (with repetitions)\n\n")
+        
+        # Parse time signature to get beats per measure
+        try:
+            beats_per_measure = int(time_signature.split('/')[0])
+        except:
+            beats_per_measure = 4  # Default to 4/4
+        
         for i, ex in enumerate(exercises_list, start=1):
             if ex[0] == 'interval':
                 a, b = ex[1], ex[2]
@@ -433,12 +442,21 @@ def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_
                 if ticks_per_beat is None:
                     ticks_per_beat = 480
                 parts = []
+                cumulative_beats = 0.0
+                measure_num = 0  # Start at 0 so first note triggers M1
                 for n, d in notes_with_dur:
+                    # Check if we're at the start of a new measure
+                    current_measure = int(cumulative_beats // beats_per_measure) + 1
+                    if current_measure > measure_num:
+                        parts.append(f"|M{current_measure}|")
+                        measure_num = current_measure
+                    
                     name = midi_to_note_name(n)
                     midi_num = int(n)
                     beats = float(d)
                     ticks = int(beats * ticks_per_beat)
                     parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                    cumulative_beats += beats
                 names = ' '.join(parts)
                 f.write(f"{i:04d}: RHYTHM_VOCAL  {names}\n")
             elif ex[0] == 'sequence':
@@ -447,7 +465,15 @@ def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_
                     if ticks_per_beat is None:
                         ticks_per_beat = 480
                     parts = []
+                    cumulative_beats = 0.0
+                    measure_num = 0  # Start at 0 so first note triggers M1
                     for item in notes_with_dur:
+                        # Check if we're at the start of a new measure
+                        current_measure = int(cumulative_beats // beats_per_measure) + 1
+                        if current_measure > measure_num:
+                            parts.append(f"|M{current_measure}|")
+                            measure_num = current_measure
+                        
                         if item[0] == 'rest':
                             # Rest notation
                             beats = float(item[1])
@@ -461,6 +487,7 @@ def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_
                             beats = float(d)
                             ticks = int(beats * ticks_per_beat)
                             parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                        cumulative_beats += beats
                     names = ' '.join(parts)
                 else:
                     names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes_with_dur])
@@ -915,7 +942,7 @@ def main():
         name = names[pc]
         return f"{name}{octave}"
 
-    def write_text_log(path: str, exercises_list, ticks_per_beat: int = None):
+    def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, time_signature: str = '4/4'):
         with open(path, 'w', encoding='utf8') as f:
             f.write(f"Intonation Trainer Log\n")
             f.write(f"Scale: {scale_name}\n")
@@ -1018,6 +1045,11 @@ def main():
     
     # Set default scale_name that will be used in output filename
     scale_name = 'session'
+    
+    # Extract time signature for measure markers in text log
+    time_signature = '4/4'  # default
+    if sequences_cfg and isinstance(sequences_cfg, dict):
+        time_signature = sequences_cfg.get('signature', '4/4')
     
     # If --from-text is provided, load exercises from text file instead of generating
     if args.from_text:
@@ -1225,7 +1257,7 @@ def main():
     # If dry run requested, write only the text log and exit (no audio rendering)
     if args.dry_run:
         text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
-        write_text_log(text_path, final_list)
+        write_text_log(text_path, final_list, time_signature=time_signature)
         shutil.rmtree(tmpdir)
         return
 
@@ -1331,7 +1363,7 @@ def main():
         # No audio rendering: write the text log using the actual MIDI ticks per beat
         text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
         ticks_val = session_mid.ticks_per_beat if 'session_mid' in locals() else 480
-        write_text_log(text_path, final_list, ticks_per_beat=ticks_val)
+        write_text_log(text_path, final_list, ticks_per_beat=ticks_val, time_signature=time_signature)
         return
     except Exception as e:
         print(f'Warning: failed to write text log: {e}')
