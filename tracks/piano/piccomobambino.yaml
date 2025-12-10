@@ -13,7 +13,7 @@ sequences:
   scale: Fminor 
   combine_sequences_to_one: true
   notes:
-    - "| z z z A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # вечерело
+    - "| A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # вечерело
     - "| z z z B4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # пели вьюги
     - "| G4:0.5 A4:0.5 | B4 A4 C5 B4 | F4 F4 "       # хоронили Магдалину 
     -  " A4 A4 | F4 F4 z A4:0.5 A4:0.5 | F4 F4  z |" # цирковую балерину
