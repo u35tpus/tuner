@@ -943,9 +943,16 @@ def main():
         return f"{name}{octave}"
 
     def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, time_signature: str = '4/4'):
+        # Parse time signature to get beats per measure
+        try:
+            beats_per_measure = int(time_signature.split('/')[0])
+        except:
+            beats_per_measure = 4  # Default to 4/4
+        
         with open(path, 'w', encoding='utf8') as f:
             f.write(f"Intonation Trainer Log\n")
             f.write(f"Scale: {scale_name}\n")
+            f.write(f"Time Signature: {time_signature}\n")
             f.write(f"Generated: {len(exercises_list)} exercises (with repetitions)\n\n")
             for i, ex in enumerate(exercises_list, start=1):
                 if ex[0] == 'interval':
@@ -964,12 +971,21 @@ def main():
                         if ticks_per_beat is None:
                             ticks_per_beat = 480
                         parts = []
+                        cumulative_beats = 0.0
+                        measure_num = 0  # Start at 0 so first note triggers M1
                         for item in notes_with_dur:
+                            # Check if we're at the start of a new measure
+                            current_measure = int(cumulative_beats // beats_per_measure) + 1
+                            if current_measure > measure_num:
+                                parts.append(f"|M{current_measure}|")
+                                measure_num = current_measure
+                            
                             if item[0] == 'rest':
                                 # Rest notation
                                 beats = float(item[1])
                                 ticks = int(beats * ticks_per_beat)
                                 parts.append(f"REST:d{beats:.2f}:t{ticks}")
+                                cumulative_beats += beats
                             else:
                                 # Regular note
                                 n, d = item
@@ -978,6 +994,7 @@ def main():
                                 beats = float(d)
                                 ticks = int(beats * ticks_per_beat)
                                 parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
+                                cumulative_beats += beats
                         names = ' '.join(parts)
                     else:
                         # Old format: just MIDI numbers
