@@ -1211,20 +1211,25 @@ def main():
     
     # Build final list as cyclic block pattern: repeat all sequences repetitions_per_exercise times, then next block, until max_duration
     final_list = []
+    # Track which original exercise each item in final_list came from (for pause_between_blocks)
+    exercise_indices = []
     if len(exercises) > 0:
         if args.from_text:
             # When loading from text, use exercises as-is without repetition
             # Respect exercises_count if set
             if exercises_count is not None and exercises_count > 0:
                 final_list = exercises[:exercises_count]
+                exercise_indices = list(range(len(final_list)))
             else:
                 max_count = int(max_duration_seconds / time_per_exercise)
                 final_list = exercises[:max(1, max_count)]
+                exercise_indices = list(range(len(final_list)))
         elif sequences_cfg:
             # Blockwise repetition for sequences: each sequence repeated n times before moving to next
-            for ex in exercises:
+            for ex_idx, ex in enumerate(exercises):
                 for _ in range(repetitions_per_exercise_cfg):
                     final_list.append(ex)
+                    exercise_indices.append(ex_idx)
             # Am Ende alle sequences als eine kombinierte Sequenz anhängen, wiederholt
             if combine_sequences_to_one:
                 # Kombiniere alle sequences zu einer einzigen
@@ -1233,19 +1238,22 @@ def main():
                     if ex[0] == 'sequence':
                         combined_notes.extend(ex[1])
                 combined_ex = ('sequence', combined_notes)
+                combined_idx = len(exercises)  # Use a new index for combined sequence
                 for _ in range(repetitions_per_exercise_cfg):
                     final_list.append(combined_ex)
+                    exercise_indices.append(combined_idx)
         else:
             # For intervals/triads, use duration-based filling
             total_time = 0.0
             while True:
-                for ex in exercises:
+                for ex_idx, ex in enumerate(exercises):
                     for _ in range(actual_reps):
                         if exercises_count is not None and len(final_list) >= exercises_count:
                             break
                         if total_time + time_per_exercise > max_duration_seconds:
                             break
                         final_list.append(ex)
+                        exercise_indices.append(ex_idx)
                         total_time += time_per_exercise
                     if exercises_count is not None and len(final_list) >= exercises_count:
                         break
@@ -1301,9 +1309,20 @@ def main():
 
             note_dur = cfg.get('timing', {}).get('note_duration', 1.8)
             intra_interval_gap = 0.1  # 100 ms gap between two notes of an interval
-            rest_between = cfg.get('timing', {}).get('pause_between_reps', 1.0)
+            pause_between_reps = cfg.get('timing', {}).get('pause_between_reps', 1.0)
+            pause_between_blocks = cfg.get('timing', {}).get('pause_between_blocks', 2.0)
 
-            for ex in final_list:
+            for i, ex in enumerate(final_list):
+                # Determine which pause to use after this exercise
+                if i < len(final_list) - 1:
+                    # Check if next exercise is from a different block
+                    current_ex_idx = exercise_indices[i] if i < len(exercise_indices) else i
+                    next_ex_idx = exercise_indices[i + 1] if (i + 1) < len(exercise_indices) else (i + 1)
+                    rest_between = pause_between_blocks if current_ex_idx != next_ex_idx else pause_between_reps
+                else:
+                    # Last exercise, use pause_between_reps
+                    rest_between = pause_between_reps
+                
                 if ex[0] == 'interval':
                     a, b = int(ex[1]), int(ex[2])
                     # note on A

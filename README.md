@@ -189,8 +189,12 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
 
 - `timing`:
   - `note_duration`: Länge eines einzelnen Tons in Sekunden
-  - `pause_between_reps`: Pause zwischen Wiederholungen in Sekunden
-  - `pause_between_blocks`: Pause zwischen Blöcken in Sekunden
+  - `pause_between_reps`: Pause zwischen Wiederholungen **innerhalb** eines Blocks in Sekunden
+    - Beispiel: Bei A A A B B B ist dies die Pause zwischen den A's und zwischen den B's
+  - `pause_between_blocks`: Pause zwischen verschiedenen Übungsblöcken in Sekunden (Default: `2.0`)
+    - Beispiel: Bei A A A B B B ist dies die Pause zwischen dem letzten A und dem ersten B
+    - Ein Block = alle Wiederholungen derselben Übung (gesteuert durch `repetitions_per_exercise`)
+    - Kann auf `0.0` gesetzt werden für keine Pause zwischen Blöcken
   - `intro_beats`, `intro_bpm`: Intro-Metronom-Informationen
 
 - `repetitions_per_exercise`: wie oft jede einzelne (einzigartige) Übung wiederholt werden soll (Typ: integer, Default: `1`)
@@ -198,6 +202,7 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
   - **Beispiel**: `repetitions_per_exercise: 3` mit 97 einzigartigen Übungen ergibt 97 × 3 = 291 Trainingseinheiten
   - **Priorität**: `repetitions_per_exercise` hat Vorrang vor `exercises_count`
   - **Konsekutive Wiederholungen**: Jede Übung wird vollständig wiederholt, bevor die nächste Übung beginnt
+  - **Pausen**: Zwischen Wiederholungen derselben Übung wird `pause_between_reps` verwendet, zwischen verschiedenen Übungen `pause_between_blocks`
   
 - `random_seed`: ganzzahlig oder `null`
 
