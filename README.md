@@ -102,6 +102,7 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
     sequences:
       signature: "4/4"          # Taktart (nur zur Information)
       unit_length: 1.0          # Basis-Notenlänge (1.0 = Viertelnote, 0.5 = Halbnote, etc.)
+      validate_time_signature: true  # Optional: Taktart-Validierung aktivieren (Default: true wenn signature angegeben)
       notes:
         - "|C4 D42 E4 F4|"      # C, D (doppelt), E, F Vierteln in 4/4
         - "|G3 C4 A4/2 D3|"     # G, C Vierteln; A (halbe); D Vierteln
@@ -113,6 +114,15 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
     - `C4/2` — halbe Länge (Achtelnote bei unit_length=1.0)
     - `C4/4` — Viertel der Länge (Sechzehntelnote)
     - `C4:1.5` — explizite Dauer in Beats (z.B. punktierte Viertelnote)
+  
+  - **Taktart-Validierung**:
+    - Wenn `signature` (z.B. `"4/4"`, `"3/4"`, `"6/8"`) angegeben ist, kann optional die Validierung aktiviert werden
+    - `validate_time_signature: true` (Standard wenn `signature` vorhanden) prüft, ob die Summe der Notenlängen pro Takt mit der Taktart übereinstimmt
+    - `validate_time_signature: false` deaktiviert die Validierung
+    - **Inline Taktwechsel**: `|3 C4 D4 E4|` wechselt zu 3/4 für diesen Takt (die Zahl nach `|` gibt die Anzahl Schläge an)
+    - **Unvollständige Takte**: Takte ohne öffnende oder schließende `|` am Anfang/Ende einer Sequenz werden als Auftakt/Abgesang erkannt und nicht validiert
+    - Beispiel: `C4 D4 | E4 F4 G4 A4 |` — erster Takt (C4 D4) ist unvollständig (Auftakt), zweiter Takt wird validiert
+    - Bei `combine_sequences_to_one: true` wird auch die kombinierte Sequenz validiert
   
   - **Pausen (Rests) in Sequenzen**:
     - `z` — Pause mit Standarddauer (entspricht `unit_length`)

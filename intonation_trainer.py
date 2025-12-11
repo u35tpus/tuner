@@ -1,8 +1,34 @@
 def preparse_abc_notes(abc_str, default_length=1.0):
     """Pre-Parsing: Check each note in ABC string before main parsing. Returns error if any note fails."""
+    import re
     original_str = abc_str
-    abc_str = abc_str.replace('|', ' ')
-    note_strs = [n.strip() for n in abc_str.split() if n.strip()]
+    # Split by | but keep them
+    parts = re.split(r'(\|)', abc_str)
+    
+    all_tokens = []
+    for part in parts:
+        part = part.strip()
+        if part == '|':
+            all_tokens.append('|')
+        elif part:
+            all_tokens.extend(part.split())
+    
+    # Filter out inline time signature numbers (number after |)
+    note_strs = []
+    i = 0
+    while i < len(all_tokens):
+        token = all_tokens[i]
+        if token == '|':
+            # Check if next token is a number (inline time signature)
+            if i + 1 < len(all_tokens) and all_tokens[i + 1].isdigit():
+                i += 2  # Skip both | and the number
+                continue
+            else:
+                i += 1  # Just skip the |
+                continue
+        note_strs.append(token)
+        i += 1
+    
     for i, note_str in enumerate(note_strs):
         parsed = parse_abc_note_with_duration(note_str, default_length)
         if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
@@ -255,22 +281,141 @@ def _parse_duration_modifier(length_str, default_length):
             raise ValueError(f"Cannot parse '{length_str}' as number")
 
 
-def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None):
+def validate_time_signature(notes_with_durations, time_signature='4/4', sequence_name='sequence'):
+    """Validate that note durations in a sequence match the time signature.
+    
+    Supports:
+    - Normal measures with standard time signature
+    - Partial measures at start/end (without opening/closing |)
+    - Inline time signature changes: |3 C4 D4 E4| for 3/4 measure
+    
+    Args:
+        notes_with_durations: List of (midi/rest, duration) tuples or (special_marker, ...) tuples
+        time_signature: Default time signature (e.g., '4/4', '3/4', '6/8')
+        sequence_name: Name for error messages
+    
+    Returns:
+        tuple (is_valid, error_message, has_partial_start, has_partial_end)
+    """
+    if not notes_with_durations:
+        return (True, None, False, False)
+    
+    # Parse default time signature
+    try:
+        parts = time_signature.split('/')
+        default_beats_per_measure = int(parts[0])
+    except:
+        return (False, f"Invalid time signature format: {time_signature}", False, False)
+    
+    # Group notes by measures (split by measure markers)
+    measures = []
+    current_measure = []
+    current_beats_per_measure = default_beats_per_measure
+    
+    # Track whether we started with a measure_start
+    first_non_marker_index = -1
+    for i, item in enumerate(notes_with_durations):
+        if isinstance(item, tuple) and len(item) >= 2 and item[0] not in ['measure_start', 'measure_end']:
+            first_non_marker_index = i
+            break
+    
+    first_item_is_note = (first_non_marker_index >= 0 and 
+                          (first_non_marker_index == 0 or 
+                           all(notes_with_durations[j][0] not in ['measure_start'] 
+                               for j in range(first_non_marker_index))))
+    
+    # Track whether we ended with a measure_end
+    last_item_is_measure_end = False
+    if notes_with_durations:
+        # Find last non-marker item
+        for i in range(len(notes_with_durations) - 1, -1, -1):
+            item = notes_with_durations[i]
+            if isinstance(item, tuple) and len(item) >= 2:
+                if item[0] == 'measure_end':
+                    last_item_is_measure_end = True
+                    break
+                elif item[0] not in ['measure_start', 'measure_end']:
+                    # Found a note/rest, no measure_end after it
+                    break
+    
+    for i, item in enumerate(notes_with_durations):
+        if isinstance(item, tuple) and len(item) >= 2:
+            if item[0] == 'measure_start':
+                # Measure start marker with optional beat count
+                if current_measure:
+                    # Determine if previous measure was partial
+                    is_first_measure = (len(measures) == 0)
+                    is_partial = is_first_measure and first_item_is_note
+                    measures.append((current_measure, current_beats_per_measure, is_partial, False))
+                    current_measure = []
+                current_beats_per_measure = item[1] if len(item) > 1 and isinstance(item[1], (int, float)) else default_beats_per_measure
+            elif item[0] == 'measure_end':
+                # Measure end marker
+                if current_measure:
+                    is_first_measure = (len(measures) == 0)
+                    is_partial_start = is_first_measure and first_item_is_note
+                    measures.append((current_measure, current_beats_per_measure, is_partial_start, False))
+                    current_measure = []
+                    current_beats_per_measure = default_beats_per_measure
+            else:
+                # Regular note or rest
+                current_measure.append(item)
+    
+    # Add final measure if any notes remain
+    if current_measure:
+        is_first_measure = (len(measures) == 0)
+        is_partial_start = is_first_measure and first_item_is_note
+        is_partial_end = not last_item_is_measure_end
+        measures.append((current_measure, current_beats_per_measure, is_partial_start, is_partial_end))
+    
+    # If no measure markers at all, treat as single partial measure
+    if not measures and notes_with_durations:
+        # All notes, no markers
+        notes_only = [n for n in notes_with_durations if not (isinstance(n, tuple) and n[0] in ['measure_start', 'measure_end'])]
+        measures = [(notes_only, default_beats_per_measure, True, True)]
+    
+    has_partial_start = any(m[2] for m in measures)
+    has_partial_end = any(m[3] for m in measures)
+    
+    # Validate each complete measure (skip partial measures)
+    errors = []
+    for i, (notes, expected_beats, is_partial_start, is_partial_end) in enumerate(measures):
+        # Skip partial measures
+        if is_partial_start or is_partial_end:
+            continue  # Don't validate partial measures
+        
+        # Calculate total duration
+        total_beats = sum(note[1] for note in notes if len(note) >= 2)
+        
+        # Allow small floating point errors
+        if abs(total_beats - expected_beats) > 0.01:
+            errors.append(f"Measure {i+1} has {total_beats} beats but should have {expected_beats} beats (time signature)")
+    
+    if errors:
+        return (False, f"Time signature validation failed for {sequence_name}:\n  " + "\n  ".join(errors), has_partial_start, has_partial_end)
+    
+    return (True, None, has_partial_start, has_partial_end)
+
+
+def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_markers=False):
     """Parse ABC notation sequence with durations into list of (midi, duration) tuples.
     
     ABC format: |D#3 A#2 C4| C4 |  or  |C4 D42 E4/2 F4|
-    Pipes (|) mark bar lines and are ignored.
+    Pipes (|) mark bar lines and are ignored (but can be tracked for validation).
     Notes are space-separated within bars.
     Default length (L) can be specified (e.g., 1.0 = quarter note).
     Supports rests: z, Z, or x with optional duration.
+    Supports inline time signature: |3 C4 D4 E4| for 3/4 measure
     
     Args:
         abc_str: ABC notation string (e.g., "|C4 D42 E4|" or "z2 | B3 | E4:1.5")
         default_length: Unit length in beats (default 1.0 for quarter note)
         scale_name: Optional scale name for automatic accidentals (e.g., 'Gmajor', 'Fminor')
+        include_markers: If True, include measure_start and measure_end markers in output
     
     Returns:
         List of (midi_number, duration) tuples (or ('rest', duration) for rests)
+        Optionally includes ('measure_start', beats) and ('measure_end', None) markers
         or tuple (None, error_message) if parsing fails
     """
     # Pre-parsing check
@@ -278,9 +423,25 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None):
     if precheck is not True:
         return precheck
     original_str = abc_str
-    abc_str = abc_str.replace('|', ' ')
-    note_strs = [n.strip() for n in abc_str.split() if n.strip()]
-    if not note_strs:
+    
+    # Parse with measure tracking
+    # Split by | but keep track of them
+    import re
+    # Split on | and keep the bars and content between them
+    parts = re.split(r'(\|)', abc_str)
+    
+    tokens = []
+    for part in parts:
+        part = part.strip()
+        if part == '|':
+            tokens.append('|')
+        elif part:
+            # Split into individual note/rest tokens
+            for token in part.split():
+                if token.strip():
+                    tokens.append(token.strip())
+    
+    if not tokens or (len(tokens) == 1 and tokens[0] == '|'):
         return (None, f"No notes found in ABC sequence '{original_str}'")
 
     # Skalen-Mapping laden, falls scale angegeben
@@ -293,7 +454,28 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None):
             scale_map = None
 
     notes_with_durations = []
-    for note_str in note_strs:
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        
+        if token == '|':
+            # Check if next token is a number (inline time signature)
+            if i + 1 < len(tokens) and tokens[i + 1].isdigit():
+                # Inline time signature: |3 means 3/4 measure
+                beats_count = int(tokens[i + 1])
+                notes_with_durations.append(('measure_start', beats_count))
+                i += 2  # Skip both | and the number
+            else:
+                # Regular measure marker
+                # Determine if it's start or end based on context
+                if not notes_with_durations or (notes_with_durations and notes_with_durations[-1][0] in ['measure_start', 'measure_end']):
+                    notes_with_durations.append(('measure_start', None))
+                else:
+                    notes_with_durations.append(('measure_end', None))
+                i += 1
+            continue
+        
+        note_str = token
         # Prüfe auf Override-Notation (!, #, b)
         override = None
         note_base = note_str
@@ -306,7 +488,6 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None):
             override = 'b'
 
         # Extrahiere Buchstaben und Oktave
-        import re
         m = re.match(r'^([A-G])([#b]?)(\d)([#b]?)([\d.:/*]*)$', note_base)
         if m:
             letter = m.group(1)
@@ -331,9 +512,20 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None):
         if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
             error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
             position_info = f"at position '{note_str}'"
-            context = " ".join(note_strs)
+            context = " ".join([t for t in tokens if t != '|'])
             return (None, f"Failed to parse ABC sequence '{original_str}' {position_info}.\nError: {error_msg}\nContext: ...{context}...")
         notes_with_durations.append(parsed)
+        i += 1
+    
+    # Filter out measure markers if not requested
+    if not include_markers:
+        notes_with_durations = [n for n in notes_with_durations if not (isinstance(n, tuple) and len(n) >= 1 and n[0] in ['measure_start', 'measure_end'])]
+    
+    # Check if we have any actual notes/rests
+    actual_notes = [n for n in notes_with_durations if not (isinstance(n, tuple) and len(n) >= 1 and n[0] in ['measure_start', 'measure_end'])]
+    if not actual_notes:
+        return (None, f"No notes found in ABC sequence '{original_str}'")
+    
     return notes_with_durations
 
 
@@ -366,6 +558,15 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
     if isinstance(sequences_cfg, dict):
         notes_list = sequences_cfg.get('notes', [])
         unit_length_val = sequences_cfg.get('unit_length', 1.0)
+        time_signature = sequences_cfg.get('signature', None)
+        # Only validate if signature is present and validation is explicitly enabled
+        validate_ts = sequences_cfg.get('validate_time_signature', False) if time_signature is None else sequences_cfg.get('validate_time_signature', True)
+        combine_sequences = sequences_cfg.get('combine_sequences_to_one', True)
+        
+        # If no signature specified, use default but don't validate
+        if time_signature is None:
+            time_signature = '4/4'
+            validate_ts = False
         
         # Also support 'L' format (e.g., "1/4" -> 0.25)
         if 'L' in sequences_cfg:
@@ -374,13 +575,45 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
                 parts = L_str.split('/')
                 unit_length_val = float(parts[0]) / float(parts[1])
         
-        for seq_str in notes_list:
-            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val, scale_name)
+        # Parse all sequences first (with markers for validation)
+        parsed_sequences = []
+        for seq_idx, seq_str in enumerate(notes_list):
+            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val, scale_name, include_markers=True)
             if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
-                exercises.append(('sequence', notes_with_dur))
+                parsed_sequences.append((seq_str, notes_with_dur))
             else:
                 error_msg = notes_with_dur[1] if notes_with_dur and len(notes_with_dur) == 2 else "Unknown error"
                 print_red(f'Warning: {error_msg}')
+        
+        # Validate time signatures if requested
+        if validate_ts and time_signature:
+            # Validate individual sequences
+            for seq_idx, (seq_str, notes_with_dur) in enumerate(parsed_sequences):
+                is_valid, error_msg, has_partial_start, has_partial_end = validate_time_signature(
+                    notes_with_dur, time_signature, f"Sequence {seq_idx + 1}"
+                )
+                if not is_valid:
+                    print_red(f'Time signature validation error in sequence {seq_idx + 1}:\n{error_msg}')
+            
+            # If combining sequences, validate the combined sequence
+            if combine_sequences and len(parsed_sequences) > 1:
+                combined_notes = []
+                for seq_str, notes_with_dur in parsed_sequences:
+                    # Keep measure markers for validation
+                    combined_notes.extend(notes_with_dur)
+                
+                is_valid, error_msg, _, _ = validate_time_signature(
+                    combined_notes, time_signature, "Combined sequence"
+                )
+                if not is_valid:
+                    print_red(f'Time signature validation error in combined sequence:\n{error_msg}')
+        
+        # Add to exercises (without measure markers for MIDI generation)
+        for seq_str, notes_with_dur in parsed_sequences:
+            # Filter out measure markers
+            notes_only = [n for n in notes_with_dur if not (isinstance(n, tuple) and n[0] in ['measure_start', 'measure_end'])]
+            exercises.append(('sequence', notes_only))
+        
         return exercises
     
     # Handle list format (simple strings, backward compatible)

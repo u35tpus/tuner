@@ -12,6 +12,7 @@ sequences:
   unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
   scale: Aminor 
   combine_sequences_to_one: true
+  validate_time_signature: false
   notes:
     - "| D4:0.5 C4:0.5 C4:3 |"  # Yesterday
     - "| E4:0.5 F#4:0.5 G#4:0.5 A4:0.5 B4:0.5 C5:0.5 | B4 A4:0.5 A4:2.5 |"  # all my troubles seemed so far away
