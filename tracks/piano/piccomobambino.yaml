@@ -12,6 +12,7 @@ sequences:
   unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
   scale: Fminor 
   combine_sequences_to_one: true
+  validate_time_signature: false
   notes:
     - "| A4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # вечерело
     - "| z z z B4:0.5 A4:0.5 | F4:0.5 F4:0.5 z z |"  # пели вьюги
