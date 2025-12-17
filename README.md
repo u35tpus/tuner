@@ -103,11 +103,35 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
       signature: "4/4"          # Taktart (nur zur Information)
       unit_length: 1.0          # Basis-Notenlänge (1.0 = Viertelnote, 0.5 = Halbnote, etc.)
       validate_time_signature: true  # Optional: Taktart-Validierung aktivieren (Default: true wenn signature angegeben)
+      transpose: 2              # Optional: Transponierung in Halbtönen (positiv = höher, negativ = tiefer, 0 = keine Transponierung)
       notes:
         - "|C4 D42 E4 F4|"      # C, D (doppelt), E, F Vierteln in 4/4
         - "|G3 C4 A4/2 D3|"     # G, C Vierteln; A (halbe); D Vierteln
         - "|G#2 C4 E3|"         # Alle Vierteln
     ```
+  
+  - **Transponierung**:
+    - Mit dem Parameter `transpose` können Sequenzen um beliebig viele Halbtöne transponiert werden
+    - `transpose: 2` — Transponiert alle Noten um 2 Halbtöne nach oben (z.B. C4 → D4, E4 → F#4)
+    - `transpose: -3` — Transponiert alle Noten um 3 Halbtöne nach unten (z.B. C4 → A3)
+    - `transpose: 12` — Transponiert um eine Oktave nach oben
+    - `transpose: -12` — Transponiert um eine Oktave nach unten
+    - `transpose: 0` oder nicht angegeben — Keine Transponierung (Standard)
+    - Pausen bleiben bei der Transponierung unverändert
+    - Noten werden auf den gültigen MIDI-Bereich (0-127) begrenzt
+    
+    **Beispiel-Konfiguration mit Transponierung:**
+    ```yaml
+    sequences:
+      signature: "4/4"
+      unit_length: 1.0
+      scale: Gminor
+      transpose: -2  # Alle Noten um 2 Halbtöne nach unten transponieren
+      notes:
+        - "| C4 D4 E4 F4 |"  # Wird zu Bb3 C4 D4 Eb4
+        - "| G4 A4 B4 C5 |"  # Wird zu F4 G4 A4 Bb4
+    ```
+  
   - **Notenlängen-Syntax**:
     - `C4` — Viertelnote (standard, multipliziert mit `unit_length`)
     - `C42` oder `C4*2` — doppelte Länge (Halbnote bei unit_length=1.0)
