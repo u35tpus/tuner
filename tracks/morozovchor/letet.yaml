@@ -1,0 +1,40 @@
+output:
+  filename: "Letet_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+# When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
+# Sequences use ABC notation with optional note durations.
+# Note duration suffix examples: "C4" (default), "C42" (double length), "C4/2" (half length)
+# L (unit_length): Base duration for notes (default 1.0 = quarter note)
+sequences:
+  signature: "4/4"
+  unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
+  scale: Gminor 
+  combine_sequences_to_one: false
+  validate_time_signature: true
+  notes:
+    - "| z C4:3.0  | z E4:3.0  | C4:4.0 | "  # mmm
+    - "| A3:4.0 | z:0.5 C4:0.5 C4:0.5 B3:0.25 C4:2.25 | z:0.5 D4:0.5 D4:0.5 C4:0.25 D4:2.25 |" # и ты летать, летать не стал
+
+
+
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 0.0
+  intro_beats: 4
+  intro_bpm: 120
+
+# How many times each sequence should be repeated consecutively
+repetitions_per_exercise: 5
+random_seed: null
+
+# Session duration limit in seconds (default 600 = 10 minutes)
+max_duration: 300
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
