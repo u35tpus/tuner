@@ -13,6 +13,7 @@ sequences:
   scale: Gminor 
   combine_sequences_to_one: false
   validate_time_signature: true
+  transpose: -12  # Transpose down by 12 semitones (oktave)
   notes:
     - "| z C4:3.0  | z E4:3.0  | C4:4.0 | "  # mmm
     - "| A3:4.0 | z:0.5 C4:0.5 C4:0.5 B3:0.25 C4:2.25 | z:0.5 D4:0.5 D4:0.5 C4:0.25 D4:2.25 |" # и ты летать, летать не стал

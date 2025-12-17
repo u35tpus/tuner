@@ -155,6 +155,42 @@ def expand_scale_over_range(scale_root_midi: int, scale_type: str, low_m: int, h
     return sorted(set(pool))
 
 
+def transpose_notes(notes_with_durations, semitones):
+    """Transpose a sequence of notes by a given number of semitones.
+    
+    Args:
+        notes_with_durations: List of (midi_note, duration) tuples or rest markers
+        semitones: Number of semitones to transpose (positive = up, negative = down)
+    
+    Returns:
+        List of transposed notes with same structure
+    """
+    if semitones == 0:
+        return notes_with_durations
+    
+    transposed = []
+    for item in notes_with_durations:
+        if isinstance(item, tuple) and len(item) >= 2:
+            # Check if it's a rest or a special marker (first element is a string)
+            if isinstance(item[0], str):
+                # Rest ('rest', duration) or other marker: keep unchanged
+                transposed.append(item)
+            elif isinstance(item[0], (int, float)) and not isinstance(item[0], bool):
+                # Regular note (MIDI number): transpose it
+                new_midi = int(item[0]) + semitones
+                # Clamp to valid MIDI range (0-127)
+                new_midi = max(0, min(127, new_midi))
+                transposed.append((new_midi, item[1]))
+            else:
+                # Other types: keep unchanged
+                transposed.append(item)
+        else:
+            # Other types: keep unchanged
+            transposed.append(item)
+    
+    return transposed
+
+
 def parse_yaml(path: str) -> dict:
     with open(path, 'r', encoding='utf8') as f:
         return yaml.safe_load(f)
@@ -562,6 +598,7 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
         # Only validate if signature is present and validation is explicitly enabled
         validate_ts = sequences_cfg.get('validate_time_signature', False) if time_signature is None else sequences_cfg.get('validate_time_signature', True)
         combine_sequences = sequences_cfg.get('combine_sequences_to_one', True)
+        transpose_semitones = sequences_cfg.get('transpose', 0)  # Number of semitones to transpose
         
         # If no signature specified, use default but don't validate
         if time_signature is None:
@@ -612,6 +649,9 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
         for seq_str, notes_with_dur in parsed_sequences:
             # Filter out measure markers
             notes_only = [n for n in notes_with_dur if not (isinstance(n, tuple) and n[0] in ['measure_start', 'measure_end'])]
+            # Apply transposition if specified
+            if transpose_semitones != 0:
+                notes_only = transpose_notes(notes_only, transpose_semitones)
             exercises.append(('sequence', notes_only))
         
         return exercises
