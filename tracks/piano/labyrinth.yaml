@@ -1,0 +1,44 @@
+output:
+  filename: "Labyrinth_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+# When 'sequences' is specified, the 'scale' and 'content' parameters are IGNORED.
+# Sequences use ABC notation with optional note durations.
+# Note duration suffix examples: "C4" (default), "C42" (double length), "C4/2" (half length)
+# L (unit_length): Base duration for notes (default 1.0 = quarter note)
+sequences:
+  signature: "3/4"
+  transpose: -12  # Transpose down by 12 semitones (oktave)
+  unit_length: 1.0  # 1.0 = quarter note, 0.5 = half note, 0.25 = sixteenth note, etc.
+  scale: Aminor 
+  combine_sequences_to_one: true
+  validate_time_signature: true
+  notes:
+    - "| E5:0.5 D5:0.5 C5:0.5 D5:0.5 E5:0.5 F5:0.5| E5:3.0 | " 
+    - "| E5:0.5 D5:0.5 C5:0.5 D5:0.5 E5:0.5 F5:0.5| D5:3.0 | " 
+    - "| D5:0.5 C5:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5| D5:1.5 z:0.5 E5 | " 
+    - "| D5 z E5 | F5 z G5 | E5:3.0 |"
+    - "| E4 F4 G4 | F4:2.0 z |"
+    - "| F4 G4 A4 | G#4:2.0 z |z2 F4 | E4:3.0 |"
+
+
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 0.0
+  intro_beats: 4
+  intro_bpm: 120
+
+# How many times each sequence should be repeated consecutively
+repetitions_per_exercise: 5
+random_seed: null
+
+# Session duration limit in seconds (default 600 = 10 minutes)
+max_duration: 300
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
