@@ -322,6 +322,26 @@ repetitions_per_exercise: 5
 Beispiel-Datei im Repo:
 - tracks/vocal_range_example/scale_step_triads_13531_A2_F4.yaml
 
+## Modus: Halbton-Schritte mit Moll-Dreiklang + 1-3-5-3-1
+
+Dieser Modus erzeugt pro Halbton-Schritt einen **Moll-Dreiklang** (gleichzeitig) und danach ein Arpeggio-Muster **1-3-5-3-1**.
+
+Wichtig: Die Skala wird als `natural_minor` (aeolian) vom aktuellen Grundton interpretiert.
+
+**Konfigurationsbeispiel:**
+```yaml
+vocal_range:
+  lowest_note: A2
+  highest_note: F4
+  mode: scale_step_minor_triads_13531
+
+# Wiederholt jeden Halbton-Schritt (CHORD + 1-3-5-3-1) n-mal
+repetitions_per_exercise: 5
+```
+
+Beispiel-Datei im Repo:
+- tracks/vocal_range_example/scale_step_minor_triads_13531_A2_F4.yaml
+
 ## Takt-Markierungen in Verbose-Ausgabe
 
 Bei Verwendung von `--verbose` oder `--dry-run` werden in der Text-Log-Datei automatisch Takt-Markierungen eingefügt, die anzeigen, wo neue Takte beginnen. Dies erleichtert das Verständnis der rhythmischen Struktur der Übungen.
