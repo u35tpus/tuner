@@ -254,15 +254,18 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
   - `soundfont_path`: Pfad zur `.sf2` Datei, z. B. `piano/SalamanderGrandPiano.sf2`
   - `velocity`: MIDI-Velocity (0–127)
 
-# Note-Chains aus vocal_range
+# Vocal-Range Übungen (ohne `scale` / `sequences`)
 
-Wenn weder `scale` noch `sequences` in der YAML-Konfiguration angegeben sind, werden zufällige Notenketten (Note-Chains) aus dem Bereich `vocal_range` generiert.
+Wenn weder `scale` noch `sequences` in der YAML-Konfiguration angegeben sind, kann der Generator Übungen direkt aus `vocal_range` erzeugen. Das Verhalten wird über `vocal_range.mode` gesteuert.
+
+## Modus: zufällige Note-Chains (Default)
 
 **Konfigurationsbeispiel:**
 ```yaml
 vocal_range:
   lowest_note: A2
   highest_note: C4
+  mode: note_chains
 max_note_chain_length: 5      # Maximale Länge einer Notenkette (Standard: 5)
 max_interval_length: 7        # Maximale Intervallgröße zwischen zwei Noten (in Halbtönen, Standard: 7)
 num_note_chains: 20           # Anzahl der generierten Notenketten (Standard: 20)
@@ -272,16 +275,34 @@ num_note_chains: 20           # Anzahl der generierten Notenketten (Standard: 20
 - Jede Note in einer Kette liegt im Bereich von `lowest_note` bis `highest_note` (inklusive).
 - Der Abstand zwischen zwei aufeinanderfolgenden Noten ist durch `max_interval_length` begrenzt.
 - Die Richtung der Noten ist beliebig (aufsteigend/absteigend/mischung).
-- Die generierten Ketten werden als Übungssequenzen ausgegeben (MIDI/Text).
 
-**Beispielausgabe:**
-```
-A2 C3 B2 F#3 C4
-C4 B3 G#3 A2
-...
+Siehe auch die Unit-Tests in `test/test_vocal_range_note_chains.py` für Details zur Generierung und Validierung.
+
+## Modus: Halbton-Schritte mit Dur-Dreiklang + 1-2-1
+
+Dieser Modus erzeugt eine deterministische Übung, die den Stimmumfang in Halbton-Schritten nach oben durchläuft. Pro Grundton (startend bei `lowest_note`) werden:
+
+1. ein **Dur-Dreiklang als Akkord** (3 Noten gleichzeitig) gespielt: 1-3-5 der jeweiligen Dur-Tonleiter
+2. danach eine kurze Folge gespielt: **1-2-1** der jeweiligen Dur-Tonleiter
+3. der Grundton um einen Halbton erhöht und wiederholt
+
+Der Generator stoppt, sobald die dafür benötigten Töne den `highest_note` überschreiten würden.
+
+**Konfigurationsbeispiel:**
+```yaml
+vocal_range:
+  lowest_note: A2
+  highest_note: C4
+  mode: scale_step_triads
+
+# Wiederholt jeden Halbton-Schritt (CHORD + 1-2-1) n-mal
+repetitions_per_exercise: 5
 ```
 
-Siehe auch die Unit-Tests in `test_vocal_range_note_chains.py` für Details zur Generierung und Validierung.
+In der Verbose-Textausgabe erscheinen Akkorde als `CHORD`-Zeilen.
+
+Beispiel-Datei im Repo:
+- tracks/vocal_range_example/scale_step_triads_A2_F4.yaml
 
 ## Takt-Markierungen in Verbose-Ausgabe
 

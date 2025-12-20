@@ -1,0 +1,28 @@
+output:
+  filename: "VocalRange_ScaleStepTriads_A2_F4_{date}.mid"
+  format: mid
+  normalize_lufs: -16
+
+vocal_range:
+  lowest_note: A2
+  highest_note: F4
+  mode: scale_step_triads
+
+# In diesem Modus wird pro Halbton-Schritt (Grundton) der Dur-Dreiklang als Akkord
+# sowie die Folge 1-2-1 erzeugt. Die Angabe unten wiederholt diesen Schritt 5x,
+# bevor zum nächsten Halbton-Schritt gewechselt wird.
+repetitions_per_exercise: 5
+
+max_duration: 600
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 0.6
+  pause_between_blocks: 1.0
+  intro_beats: 4
+  intro_bpm: 120
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90

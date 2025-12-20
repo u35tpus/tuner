@@ -710,6 +710,10 @@ def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_
                 notes = ex[1]
                 names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
                 f.write(f"{i:04d}: TRIAD     {names}\n")
+            elif ex[0] == 'chord':
+                notes = ex[1]
+                names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
+                f.write(f"{i:04d}: CHORD    {names}\n")
             elif ex[0] == 'rhythm_vocal':
                 notes_with_dur = ex[1]
                 if ticks_per_beat is None:
@@ -797,6 +801,13 @@ def parse_text_log(path: str):
                     if len(matches) >= 3:
                         notes = tuple(int(m) for m in matches)
                         exercises.append(('triad', notes))
+                elif content.startswith('CHORD'):
+                    rest = content[len('CHORD'):].strip()
+                    import re
+                    matches = re.findall(r'\((\d+)\)', rest)
+                    if len(matches) >= 3:
+                        notes = tuple(int(m) for m in matches)
+                        exercises.append(('chord', notes))
                 elif content.startswith('SEQUENCE'):
                     # parse simple sequence names (no durations)
                     rest = content[len('SEQUENCE'):].strip()
@@ -841,42 +852,67 @@ def build_final_list(cfg: dict, args) -> tuple:
         exercises = parse_sequences_from_config(sequences_cfg)
     else:
         scale_cfg = cfg.get('scale', {})
-        scale_name = scale_cfg.get('name', 'scale')
-        if 'notes' in scale_cfg and scale_cfg['notes']:
+        # Vocal-range only modes: if neither scale nor sequences are provided.
+        if not scale_cfg:
+            vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', 'note_chains')
+            if vocal_mode == 'scale_step_triads':
+                exercises = generate_vocal_range_scale_step_triads(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
+            else:
+                exercises = generate_vocal_range_note_chains(
+                    lowest,
+                    highest,
+                    max_note_chain_length=cfg.get('max_note_chain_length', 5),
+                    max_interval_length=cfg.get('max_interval_length', 7),
+                    num_chains=cfg.get('num_note_chains', 20),
+                )
+            scale_name = 'vocal_range'
+        else:
+            scale_name = scale_cfg.get('name', 'scale')
+        if scale_cfg and 'notes' in scale_cfg and scale_cfg['notes']:
             custom_notes = [note_name_to_midi(n) for n in scale_cfg['notes']]
             pool = [n for n in custom_notes if lowest <= n <= highest]
             scale_single_octave = sorted(set([n % 12 + 12 for n in custom_notes]))[:7]
-        else:
+        elif scale_cfg:
             root = note_name_to_midi(scale_cfg.get('root', 'A3'))
             stype = scale_cfg.get('type', 'natural_minor')
             pool = expand_scale_over_range(root, stype, lowest, highest)
             scale_single_octave = build_scale_notes(root, stype)
 
-        content = cfg.get('content', {})
-        intervals_cfg = content.get('intervals', {})
-        triads_cfg = content.get('triads', {})
+        if not scale_cfg:
+            # Vocal-range modes already produced a complete exercises list.
+            pass
+        else:
+            content = cfg.get('content', {})
+            intervals_cfg = content.get('intervals', {})
+            triads_cfg = content.get('triads', {})
 
-        max_interval = 12
-        include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
-        ascending = intervals_cfg.get('ascending', True)
-        descending = intervals_cfg.get('descending', True)
+            max_interval = 12
+            include_m3 = intervals_cfg.get('include_minor_3rd_even_in_major', True)
+            ascending = intervals_cfg.get('ascending', True)
+            descending = intervals_cfg.get('descending', True)
 
-        exercises = []
-        exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
-        if triads_cfg.get('enabled', True):
-            tri_types = triads_cfg.get('types', ['major','minor','diminished'])
-            triads = generate_triads(
-                scale_single_octave,
-                pool,
-                include_inversions=triads_cfg.get('include_inversions', True),
-                triad_types=tri_types,
-                low=lowest,
-                high=highest,
-            )
-            exercises += triads
+            exercises = []
+            exercises += generate_intervals(pool, ascending=ascending, descending=descending, max_interval=max_interval, include_m3=include_m3)
+            if triads_cfg.get('enabled', True):
+                tri_types = triads_cfg.get('types', ['major','minor','diminished'])
+                triads = generate_triads(
+                    scale_single_octave,
+                    pool,
+                    include_inversions=triads_cfg.get('include_inversions', True),
+                    triad_types=tri_types,
+                    low=lowest,
+                    high=highest,
+                )
+                exercises += triads
 
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
-    if not sequences_cfg:
+    # vocal_range.mode == scale_step_triads soll deterministisch aufwärts laufen.
+    vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
+    if not sequences_cfg and vocal_mode != 'scale_step_triads':
         random.shuffle(exercises)
     # timing
     note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
@@ -926,9 +962,15 @@ def build_final_list(cfg: dict, args) -> tuple:
                     final_list.append(ex)
         else:
             # Standardverhalten für Skalen/Intervalle/Triaden
-            for ex in exercises:
+            vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
+            if vocal_mode == 'scale_step_triads':
                 for _ in range(actual_reps):
-                    final_list.append(ex)
+                    for ex in exercises:
+                        final_list.append(ex)
+            else:
+                for ex in exercises:
+                    for _ in range(actual_reps):
+                        final_list.append(ex)
             if exercises_count is not None and len(final_list) > exercises_count:
                 final_list = final_list[:exercises_count]
 
@@ -942,6 +984,127 @@ def build_final_list(cfg: dict, args) -> tuple:
     out_name = getattr(args, 'output', None) or fname_template.format(scale=scale_label.replace(' ', '_'), date=timestamp)
 
     return final_list, scale_name, out_name, estimated_duration
+
+
+def generate_vocal_range_note_chains(
+    lowest: int,
+    highest: int,
+    *,
+    max_note_chain_length: int = 5,
+    max_interval_length: int = 7,
+    num_chains: int = 20,
+    rng=None,
+):
+    """Generate random note-chains within [lowest, highest] (inclusive)."""
+    if rng is None:
+        rng = random
+    pool = list(range(int(lowest), int(highest) + 1))
+    exercises = []
+    for _ in range(int(num_chains)):
+        chain_len = rng.randint(2, int(max_note_chain_length))
+        chain = []
+        note = rng.choice(pool)
+        chain.append(note)
+        for _ in range(chain_len - 1):
+            candidates = [n for n in pool if abs(n - note) <= int(max_interval_length) and n != note]
+            if not candidates:
+                break
+            note = rng.choice(candidates)
+            chain.append(note)
+        exercises.append(('sequence', [(n, 1.0) for n in chain]))
+    return exercises
+
+
+def generate_vocal_range_scale_step_triads(lowest: int, highest: int, *, repetitions_per_step: int = 1):
+    """Generate a deterministic vocal-range exercise.
+
+    For each root note starting at lowest and moving up by 1 semitone:
+      1) play major triad as a chord (3 notes concurrently)
+      2) play scale degrees 1, 2, 1 as a sequence (root, second, root)
+
+    Stops when the required notes would exceed highest.
+    """
+    exercises = []
+    low = int(lowest)
+    high = int(highest)
+    reps = max(1, int(repetitions_per_step))
+    for root in range(low, high + 1):
+        scale = build_scale_notes(root, 'major')
+        second = scale[1]
+        third = scale[2]
+        fifth = scale[4]
+        if second > high or fifth > high:
+            break
+        for _ in range(reps):
+            exercises.append(('chord', (root, third, fifth)))
+            exercises.append(('sequence', [root, second, root]))
+    return exercises
+
+
+def append_exercise_to_session_track(
+    track,
+    ex,
+    *,
+    velocity: int,
+    secs_to_ticks,
+    note_dur: float,
+    intra_interval_gap: float,
+    rest_between: float,
+):
+    """Append one exercise to a session MIDI track.
+
+    Supported exercise types: interval, triad (sequential), chord (simultaneous), rhythm_vocal, sequence.
+    """
+    if ex[0] == 'interval':
+        a, b = int(ex[1]), int(ex[2])
+        track.append(Message('note_on', note=a, velocity=velocity, time=0))
+        track.append(Message('note_off', note=a, velocity=0, time=secs_to_ticks(note_dur)))
+        track.append(Message('note_on', note=b, velocity=velocity, time=secs_to_ticks(intra_interval_gap)))
+        track.append(Message('note_off', note=b, velocity=0, time=secs_to_ticks(note_dur)))
+        track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+    elif ex[0] == 'triad':
+        notes = [int(n) for n in ex[1]]
+        for n in notes:
+            track.append(Message('note_on', note=n, velocity=velocity, time=0))
+            track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
+        track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+    elif ex[0] == 'chord':
+        notes = [int(n) for n in ex[1]]
+        if notes:
+            for n in notes:
+                track.append(Message('note_on', note=n, velocity=velocity, time=0))
+            track.append(Message('note_off', note=notes[0], velocity=0, time=secs_to_ticks(note_dur)))
+            for n in notes[1:]:
+                track.append(Message('note_off', note=n, velocity=0, time=0))
+        track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+    elif ex[0] == 'rhythm_vocal':
+        notes_with_dur = ex[1]
+        for midi_note, dur in notes_with_dur:
+            midi_note = int(midi_note)
+            ticks = secs_to_ticks(dur)
+            track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
+            track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
+        track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+    elif ex[0] == 'sequence':
+        seq = ex[1]
+        if seq and isinstance(seq[0], tuple):
+            for midi_note, dur in seq:
+                if midi_note == 'rest':
+                    ticks = secs_to_ticks(dur)
+                    track.append(mido.MetaMessage('track_name', name='', time=ticks))
+                else:
+                    midi_note = int(midi_note)
+                    ticks = secs_to_ticks(dur)
+                    track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
+                    track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
+        else:
+            notes = [int(n) for n in seq]
+            for n in notes:
+                track.append(Message('note_on', note=n, velocity=velocity, time=0))
+                track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
+        track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+    else:
+        track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
 
 
 
@@ -1235,6 +1398,10 @@ def main():
                     notes = ex[1]
                     names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
                     f.write(f"{i:04d}: TRIAD     {names}\n")
+                elif ex[0] == 'chord':
+                    notes = ex[1]
+                    names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
+                    f.write(f"{i:04d}: CHORD    {names}\n")
                 elif ex[0] == 'sequence':
                     notes_with_dur = ex[1]
                     # Handle both old format (just MIDI numbers) and new format (with durations)
@@ -1309,6 +1476,14 @@ def main():
                         if len(matches) >= 3:
                             notes = tuple(int(m) for m in matches)
                             exercises.append(('triad', notes))
+                    elif content.startswith('CHORD'):
+                        # Parse: "CHORD    A3(57) C#4(61) E4(64)"
+                        rest = content[len('CHORD'):].strip()
+                        import re
+                        matches = re.findall(r'\((\d+)\)', rest)
+                        if len(matches) >= 3:
+                            notes = tuple(int(m) for m in matches)
+                            exercises.append(('chord', notes))
         except Exception as e:
             print(f'Error parsing text log {path}: {e}')
             return []
@@ -1364,31 +1539,24 @@ def main():
         scale_cfg = cfg.get('scale', {})
         sequences_cfg = cfg.get('sequences', None)
         if not scale_cfg and not sequences_cfg:
-            # Hole Parameter
             vocal = cfg.get('vocal_range', {})
             lowest = note_name_to_midi(vocal.get('lowest_note', 'A3'))
             highest = note_name_to_midi(vocal.get('highest_note', 'A4'))
-            max_note_chain_length = cfg.get('max_note_chain_length', 5)
-            max_interval_length = cfg.get('max_interval_length', 7)
-            num_chains = cfg.get('num_note_chains', 20)
-            # Erzeuge alle möglichen Noten im Bereich
-            pool = list(range(lowest, highest+1))
-            # Generiere Note-Chains
-            exercises = []
-            for _ in range(num_chains):
-                chain_len = random.randint(2, max_note_chain_length)
-                chain = []
-                # Starte mit zufälliger Note
-                note = random.choice(pool)
-                chain.append(note)
-                for _ in range(chain_len-1):
-                    # Erlaube nur Noten im Bereich und mit Intervallbegrenzung
-                    candidates = [n for n in pool if abs(n-note) <= max_interval_length and n != note]
-                    if not candidates:
-                        break
-                    note = random.choice(candidates)
-                    chain.append(note)
-                exercises.append(('sequence', [(n, 1.0) for n in chain]))
+            vocal_mode = vocal.get('mode', 'note_chains')
+            if vocal_mode == 'scale_step_triads':
+                exercises = generate_vocal_range_scale_step_triads(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
+            else:
+                exercises = generate_vocal_range_note_chains(
+                    lowest,
+                    highest,
+                    max_note_chain_length=cfg.get('max_note_chain_length', 5),
+                    max_interval_length=cfg.get('max_interval_length', 7),
+                    num_chains=cfg.get('num_note_chains', 20),
+                )
         else:
             # Normal mode: generate exercises from scale and content
             scale_name = scale_cfg.get('name', 'scale')
@@ -1436,7 +1604,8 @@ def main():
                 exercises += rhythm_exercises
 
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
-    if not sequences_cfg:
+    vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
+    if not sequences_cfg and vocal_mode != 'scale_step_triads':
         random.shuffle(exercises)
     final_list = []
     # Calculate actual repetitions based on max_duration target
@@ -1517,10 +1686,12 @@ def main():
                     exercise_indices.append(combined_idx)
         else:
             # For intervals/triads, use duration-based filling
+            vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
             total_time = 0.0
             while True:
                 for ex_idx, ex in enumerate(exercises):
-                    for _ in range(actual_reps):
+                    reps_for_this_ex = 1 if vocal_mode == 'scale_step_triads' else actual_reps
+                    for _ in range(reps_for_this_ex):
                         if exercises_count is not None and len(final_list) >= exercises_count:
                             break
                         if total_time + time_per_exercise > max_duration_seconds:
@@ -1595,65 +1766,16 @@ def main():
                 else:
                     # Last exercise, use pause_between_reps
                     rest_between = pause_between_reps
-                
-                if ex[0] == 'interval':
-                    a, b = int(ex[1]), int(ex[2])
-                    # note on A
-                    track.append(Message('note_on', note=a, velocity=velocity, time=0))
-                    # note off A after note_dur
-                    track.append(Message('note_off', note=a, velocity=0, time=secs_to_ticks(note_dur)))
-                    # small gap before second note
-                    track.append(Message('note_on', note=b, velocity=velocity, time=secs_to_ticks(intra_interval_gap)))
-                    track.append(Message('note_off', note=b, velocity=0, time=secs_to_ticks(note_dur)))
-                    # rest between exercises
-                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
-                elif ex[0] == 'triad':
-                    notes = [int(n) for n in ex[1]]
-                    # Play notes consecutively with no pause between them
-                    for i, n in enumerate(notes):
-                        track.append(Message('note_on', note=n, velocity=velocity, time=0))
-                        track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
-                    # rest between exercises
-                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
-                elif ex[0] == 'rhythm_vocal':
-                    # Rhythm vocal exercises: list of (midi, duration) tuples
-                    notes_with_dur = ex[1]
-                    for midi_note, dur in notes_with_dur:
-                        midi_note = int(midi_note)
-                        ticks = secs_to_ticks(dur)
-                        track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
-                        track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
-                    # rest between exercises
-                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
-                elif ex[0] == 'sequence':
-                    # ex[1] may be either a sequence of MIDI ints (old format)
-                    # or a sequence of (midi, duration) tuples (new ABC format).
-                    seq = ex[1]
-                    # Play notes consecutively; respect per-note durations when provided.
-                    if seq and isinstance(seq[0], tuple):
-                        # New format: list of (midi, duration) tuples
-                        for midi_note, dur in seq:
-                            if midi_note == 'rest':
-                                # For rests, just add silence (time passes with no note events)
-                                ticks = secs_to_ticks(dur)
-                                # Add a dummy meta message to advance time
-                                track.append(mido.MetaMessage('track_name', name='', time=ticks))
-                            else:
-                                midi_note = int(midi_note)
-                                ticks = secs_to_ticks(dur)
-                                track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
-                                track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
-                    else:
-                        # Old format: list of MIDI ints, use default note_dur
-                        notes = [int(n) for n in seq]
-                        for n in notes:
-                            track.append(Message('note_on', note=n, velocity=velocity, time=0))
-                            track.append(Message('note_off', note=n, velocity=0, time=secs_to_ticks(note_dur)))
-                    # rest between exercises
-                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
-                else:
-                    # unknown entry: skip with a small rest
-                    track.append(mido.MetaMessage('track_name', name='', time=secs_to_ticks(rest_between)))
+
+                append_exercise_to_session_track(
+                    track,
+                    ex,
+                    velocity=velocity,
+                    secs_to_ticks=secs_to_ticks,
+                    note_dur=note_dur,
+                    intra_interval_gap=intra_interval_gap,
+                    rest_between=rest_between,
+                )
 
             base = os.path.splitext(out_name)[0]
             session_midi_path = base + '.mid'
