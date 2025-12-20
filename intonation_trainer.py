@@ -867,6 +867,12 @@ def build_final_list(cfg: dict, args) -> tuple:
                     highest,
                     repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
                 )
+            elif vocal_mode == 'scale_step_minor_triads_13531':
+                exercises = generate_vocal_range_scale_step_minor_triads_13531(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
             else:
                 exercises = generate_vocal_range_note_chains(
                     lowest,
@@ -918,7 +924,7 @@ def build_final_list(cfg: dict, args) -> tuple:
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
     # vocal_range modes that are step-based should be deterministic (no shuffle).
     vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
-    if not sequences_cfg and vocal_mode not in ('scale_step_triads', 'scale_step_triads_13531'):
+    if not sequences_cfg and vocal_mode not in ('scale_step_triads', 'scale_step_triads_13531', 'scale_step_minor_triads_13531'):
         random.shuffle(exercises)
     # timing
     note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
@@ -1063,6 +1069,34 @@ def generate_vocal_range_scale_step_triads_13531(lowest: int, highest: int, *, r
     reps = max(1, int(repetitions_per_step))
     for root in range(low, high + 1):
         scale = build_scale_notes(root, 'major')
+        third = scale[2]
+        fifth = scale[4]
+        if fifth > high:
+            break
+        for _ in range(reps):
+            exercises.append(('chord', (root, third, fifth)))
+            exercises.append(('sequence', [root, third, fifth, third, root]))
+    return exercises
+
+
+def generate_vocal_range_scale_step_minor_triads_13531(lowest: int, highest: int, *, repetitions_per_step: int = 1):
+    """Generate a deterministic vocal-range exercise using minor triad + 1-3-5-3-1.
+
+    Uses the natural minor scale (aeolian) built from the current root.
+
+    For each root note starting at lowest and moving up by 1 semitone:
+      1) play minor triad as a chord (3 notes concurrently)
+      2) play scale degrees 1, 3, 5, 3, 1 as a sequence (root, third, fifth, third, root)
+
+    The whole step is repeated repetitions_per_step times before moving to the next semitone.
+    Stops when the required notes would exceed highest.
+    """
+    exercises = []
+    low = int(lowest)
+    high = int(highest)
+    reps = max(1, int(repetitions_per_step))
+    for root in range(low, high + 1):
+        scale = build_scale_notes(root, 'natural_minor')
         third = scale[2]
         fifth = scale[4]
         if fifth > high:
@@ -1587,6 +1621,12 @@ def main():
                     highest,
                     repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
                 )
+            elif vocal_mode == 'scale_step_minor_triads_13531':
+                exercises = generate_vocal_range_scale_step_minor_triads_13531(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
             else:
                 exercises = generate_vocal_range_note_chains(
                     lowest,
@@ -1643,7 +1683,7 @@ def main():
 
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
     vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
-    if not sequences_cfg and vocal_mode not in ('scale_step_triads', 'scale_step_triads_13531'):
+    if not sequences_cfg and vocal_mode not in ('scale_step_triads', 'scale_step_triads_13531', 'scale_step_minor_triads_13531'):
         random.shuffle(exercises)
     final_list = []
     # Calculate actual repetitions based on max_duration target
@@ -1728,7 +1768,7 @@ def main():
             total_time = 0.0
             while True:
                 for ex_idx, ex in enumerate(exercises):
-                    reps_for_this_ex = 1 if vocal_mode in ('scale_step_triads', 'scale_step_triads_13531') else actual_reps
+                    reps_for_this_ex = 1 if vocal_mode in ('scale_step_triads', 'scale_step_triads_13531', 'scale_step_minor_triads_13531') else actual_reps
                     for _ in range(reps_for_this_ex):
                         if exercises_count is not None and len(final_list) >= exercises_count:
                             break
