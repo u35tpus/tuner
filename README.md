@@ -304,6 +304,24 @@ In der Verbose-Textausgabe erscheinen Akkorde als `CHORD`-Zeilen.
 Beispiel-Datei im Repo:
 - tracks/vocal_range_example/scale_step_triads_A2_F4.yaml
 
+## Modus: Halbton-Schritte mit Dur-Dreiklang + 1-3-5-3-1
+
+Dieser Modus ist ähnlich wie `scale_step_triads`, spielt aber nach dem Akkord ein Arpeggio-Muster **1-3-5-3-1** (der jeweiligen Dur-Tonleiter des aktuellen Grundtons).
+
+**Konfigurationsbeispiel:**
+```yaml
+vocal_range:
+  lowest_note: A2
+  highest_note: F4
+  mode: scale_step_triads_13531
+
+# Wiederholt jeden Halbton-Schritt (CHORD + 1-3-5-3-1) n-mal
+repetitions_per_exercise: 5
+```
+
+Beispiel-Datei im Repo:
+- tracks/vocal_range_example/scale_step_triads_13531_A2_F4.yaml
+
 ## Takt-Markierungen in Verbose-Ausgabe
 
 Bei Verwendung von `--verbose` oder `--dry-run` werden in der Text-Log-Datei automatisch Takt-Markierungen eingefügt, die anzeigen, wo neue Takte beginnen. Dies erleichtert das Verständnis der rhythmischen Struktur der Übungen.
