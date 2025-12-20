@@ -856,7 +856,11 @@ def build_final_list(cfg: dict, args) -> tuple:
         if not scale_cfg:
             vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', 'note_chains')
             if vocal_mode == 'scale_step_triads':
-                exercises = generate_vocal_range_scale_step_triads(lowest, highest)
+                exercises = generate_vocal_range_scale_step_triads(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
             else:
                 exercises = generate_vocal_range_note_chains(
                     lowest,
@@ -1011,7 +1015,7 @@ def generate_vocal_range_note_chains(
     return exercises
 
 
-def generate_vocal_range_scale_step_triads(lowest: int, highest: int):
+def generate_vocal_range_scale_step_triads(lowest: int, highest: int, *, repetitions_per_step: int = 1):
     """Generate a deterministic vocal-range exercise.
 
     For each root note starting at lowest and moving up by 1 semitone:
@@ -1023,6 +1027,7 @@ def generate_vocal_range_scale_step_triads(lowest: int, highest: int):
     exercises = []
     low = int(lowest)
     high = int(highest)
+    reps = max(1, int(repetitions_per_step))
     for root in range(low, high + 1):
         scale = build_scale_notes(root, 'major')
         second = scale[1]
@@ -1030,8 +1035,9 @@ def generate_vocal_range_scale_step_triads(lowest: int, highest: int):
         fifth = scale[4]
         if second > high or fifth > high:
             break
-        exercises.append(('chord', (root, third, fifth)))
-        exercises.append(('sequence', [root, second, root]))
+        for _ in range(reps):
+            exercises.append(('chord', (root, third, fifth)))
+            exercises.append(('sequence', [root, second, root]))
     return exercises
 
 
@@ -1538,7 +1544,11 @@ def main():
             highest = note_name_to_midi(vocal.get('highest_note', 'A4'))
             vocal_mode = vocal.get('mode', 'note_chains')
             if vocal_mode == 'scale_step_triads':
-                exercises = generate_vocal_range_scale_step_triads(lowest, highest)
+                exercises = generate_vocal_range_scale_step_triads(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
             else:
                 exercises = generate_vocal_range_note_chains(
                     lowest,

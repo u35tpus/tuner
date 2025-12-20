@@ -294,9 +294,15 @@ vocal_range:
   lowest_note: A2
   highest_note: C4
   mode: scale_step_triads
+
+# Wiederholt jeden Halbton-Schritt (CHORD + 1-2-1) n-mal
+repetitions_per_exercise: 5
 ```
 
 In der Verbose-Textausgabe erscheinen Akkorde als `CHORD`-Zeilen.
+
+Beispiel-Datei im Repo:
+- tracks/vocal_range_example/scale_step_triads_A2_F4.yaml
 
 ## Takt-Markierungen in Verbose-Ausgabe
 

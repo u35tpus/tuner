@@ -17,6 +17,20 @@ class TestVocalRangeScaleStepTriads(unittest.TestCase):
         self.assertEqual(exercises[1][0], 'sequence')
         self.assertEqual(exercises[1][1], [lowest, trainer.note_name_to_midi('B2'), lowest])
 
+    def test_repetitions_per_step_repeats_chord_and_sequence(self):
+        lowest = trainer.note_name_to_midi('A2')
+        highest = trainer.note_name_to_midi('E3')
+
+        exercises = trainer.generate_vocal_range_scale_step_triads(lowest, highest, repetitions_per_step=3)
+
+        # For A2..E3 only one root fits, repeated 3 times => 3*(CHORD+SEQUENCE) == 6 entries
+        self.assertEqual(len(exercises), 6)
+        for i in range(0, 6, 2):
+            self.assertEqual(exercises[i][0], 'chord')
+            self.assertEqual(exercises[i][1], (lowest, trainer.note_name_to_midi('C#3'), highest))
+            self.assertEqual(exercises[i + 1][0], 'sequence')
+            self.assertEqual(exercises[i + 1][1], [lowest, trainer.note_name_to_midi('B2'), lowest])
+
     def test_empty_when_range_too_small_for_triad(self):
         lowest = trainer.note_name_to_midi('A2')
         highest = trainer.note_name_to_midi('B2')
