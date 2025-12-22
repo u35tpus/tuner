@@ -491,12 +491,73 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_mar
     if not tokens or (len(tokens) == 1 and tokens[0] == '|'):
         return (None, f"No notes found in ABC sequence '{original_str}'")
 
+    def _resolve_scale_key_for_accidentals(raw_name: str, scales_cfg: dict):
+        if not raw_name:
+            return None
+        name = str(raw_name).strip()
+        if not name:
+            return None
+
+        # 1) Direct match
+        if name in scales_cfg:
+            return name
+
+        # 2) Case-insensitive match
+        lowered = name.lower()
+        for k in scales_cfg.keys():
+            if str(k).lower() == lowered:
+                return k
+
+        # 3) Common aliases: Aminor/Dminor/Gminor -> Am/Dm/Gm
+        #    and major spelled as Xmajor (already used), but allow Xmaj.
+        compact = ''.join(ch for ch in name if not ch.isspace())
+        compact_lower = compact.lower()
+
+        import re
+        m = re.match(r'^([a-g])(?:(#|b)|(?:sharp|flat))?(major|minor|maj|min|m)$', compact_lower)
+        if m:
+            letter = m.group(1).upper()
+            accidental_token = m.group(2)
+            mode = m.group(3)
+
+            # Normalize accidental words
+            # (regex above captures only #/b; handle word forms by checking original string)
+            has_sharp_word = 'sharp' in compact_lower
+            has_flat_word = 'flat' in compact_lower
+            if accidental_token is None:
+                if has_sharp_word:
+                    accidental_token = '#'
+                elif has_flat_word:
+                    accidental_token = 'b'
+
+            if mode in ('minor', 'min', 'm'):
+                if accidental_token == '#':
+                    candidate = f"{letter}sharpminor"
+                elif accidental_token == 'b':
+                    candidate = f"{letter}bm"
+                else:
+                    candidate = f"{letter}m"
+            else:
+                # major / maj
+                if accidental_token == '#':
+                    candidate = f"{letter}sharpmajor"
+                elif accidental_token == 'b':
+                    candidate = f"{letter}bmajor"
+                else:
+                    candidate = f"{letter}major"
+
+            if candidate in scales_cfg:
+                return candidate
+
+        return None
+
     # Skalen-Mapping laden, falls scale angegeben
     scale_map = None
     if scale_name:
         try:
             scales_cfg = parse_yaml('config/scales.yaml')
-            scale_map = scales_cfg.get(scale_name, {})
+            resolved = _resolve_scale_key_for_accidentals(scale_name, scales_cfg)
+            scale_map = scales_cfg.get(resolved) if resolved else None
         except Exception:
             scale_map = None
 
