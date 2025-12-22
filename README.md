@@ -138,6 +138,23 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
     - `C4/2` — halbe Länge (Achtelnote bei unit_length=1.0)
     - `C4/4` — Viertel der Länge (Sechzehntelnote)
     - `C4:1.5` — explizite Dauer in Beats (z.B. punktierte Viertelnote)
+
+  - **Legato / Bindebogen (Tie) in Sequenzen**:
+    - Ein `-` am Ende einer Note bindet zur **nächsten Note derselben Tonhöhe**.
+    - Die Fortsetzungs-Note wird **nicht erneut angeschlagen**, sondern verlängert die vorherige Note (auch über `|` hinweg).
+    - Die Dauer wird pro Token angegeben und addiert sich (z.B. `C4- C4` ergibt 2 Beats bei `unit_length: 1.0`).
+    - Pausen (`z`, `Z`, `x`) können nicht gebunden werden.
+
+    **Beispiele**:
+    ```yaml
+    sequences:
+      signature: "4/4"
+      unit_length: 1.0
+      notes:
+        - "| C4- C4 D4 E4 |"      # C4 wird insgesamt 2 Beats gehalten
+        - "| C4- | C4 | D4 |"      # Tie über Taktgrenze
+        - "| C4:1.0- C4:0.5 D4 |"  # Gesamtdauer C4 = 1.5 Beats
+    ```
   
   - **Taktart-Validierung**:
     - Wenn `signature` (z.B. `"4/4"`, `"3/4"`, `"6/8"`) angegeben ist, kann optional die Validierung aktiviert werden
@@ -169,6 +186,9 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
         - "| C4 D4 | z E4 F4 | z2 |"        # Pausen innerhalb von Takten
         - "C4 z:0.5 D4 z:1.5 E4"            # Explizite Pausenlängen
     ```
+
+  - **Beispiel-Konfiguration**:
+    - Eine komplette Beispiel-Konfig für Legato/Ties findest du in [config_legato_example.yaml](config_legato_example.yaml).
   
   - **Einfaches Format** (komma-getrennt, rückwärts-kompatibel, ohne Notenlängen):
     ```yaml
