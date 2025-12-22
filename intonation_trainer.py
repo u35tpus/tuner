@@ -30,7 +30,14 @@ def preparse_abc_notes(abc_str, default_length=1.0):
         i += 1
     
     for i, note_str in enumerate(note_strs):
-        parsed = parse_abc_note_with_duration(note_str, default_length)
+        # Allow tie/legato suffix "-" (e.g. C4- C4) in pre-check by stripping it.
+        check_str = note_str
+        if isinstance(check_str, str) and check_str.endswith('-'):
+            check_str = check_str[:-1]
+            if not check_str:
+                return (None, f"Pre-parsing error: Invalid tie marker '-' at position {i+1} in sequence '{original_str}'")
+
+        parsed = parse_abc_note_with_duration(check_str, default_length)
         if parsed is None or (isinstance(parsed, tuple) and len(parsed) == 2 and parsed[0] is None):
             error_msg = parsed[1] if parsed and len(parsed) == 2 else "Unknown error"
             context = " ".join(note_strs[max(0,i-1):min(len(note_strs),i+2)])
@@ -180,7 +187,11 @@ def transpose_notes(notes_with_durations, semitones):
                 new_midi = int(item[0]) + semitones
                 # Clamp to valid MIDI range (0-127)
                 new_midi = max(0, min(127, new_midi))
-                transposed.append((new_midi, item[1]))
+                # Preserve any extra fields (e.g., tie markers)
+                if len(item) > 2:
+                    transposed.append((new_midi, item[1], *item[2:]))
+                else:
+                    transposed.append((new_midi, item[1]))
             else:
                 # Other types: keep unchanged
                 transposed.append(item)
@@ -491,6 +502,10 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_mar
 
     notes_with_durations = []
     i = 0
+    # Tie/legato support: a trailing "-" on a note token ties it to the next
+    # note token of the same pitch, even across measure markers "|".
+    # We encode the continuation note as a 3-tuple: (midi, duration, 'tie').
+    tie_expected_midi = None
     while i < len(tokens):
         token = tokens[i]
         
@@ -512,6 +527,16 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_mar
             continue
         
         note_str = token
+
+        # Detect tie suffix (e.g., C4-). The continuation note is expected later.
+        tie_to_next = False
+        if isinstance(note_str, str) and note_str.endswith('-'):
+            tie_to_next = True
+            note_str = note_str[:-1]
+            if not note_str:
+                context = " ".join([t for t in tokens if t != '|'])
+                return (None, f"Failed to parse ABC sequence '{original_str}' at position '{token}'.\nError: Invalid tie marker '-' without a note.\nContext: ...{context}...")
+
         # Prüfe auf Override-Notation (!, #, b)
         override = None
         note_base = note_str
@@ -550,8 +575,34 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_mar
             position_info = f"at position '{note_str}'"
             context = " ".join([t for t in tokens if t != '|'])
             return (None, f"Failed to parse ABC sequence '{original_str}' {position_info}.\nError: {error_msg}\nContext: ...{context}...")
+
+        # Validate / mark tie continuation
+        if tie_expected_midi is not None:
+            if parsed[0] == 'rest':
+                context = " ".join([t for t in tokens if t != '|'])
+                return (None, f"Failed to parse ABC sequence '{original_str}' at position '{token}'.\nError: Tie continuation cannot be a rest.\nContext: ...{context}...")
+            if int(parsed[0]) != int(tie_expected_midi):
+                context = " ".join([t for t in tokens if t != '|'])
+                return (None, f"Failed to parse ABC sequence '{original_str}' at position '{token}'.\nError: Tie continuation must repeat the same pitch (expected MIDI {int(tie_expected_midi)} but got {int(parsed[0])}).\nContext: ...{context}...")
+            parsed = (parsed[0], parsed[1], 'tie')
+
+        # Disallow tying rests
+        if tie_to_next and parsed[0] == 'rest':
+            context = " ".join([t for t in tokens if t != '|'])
+            return (None, f"Failed to parse ABC sequence '{original_str}' at position '{token}'.\nError: Cannot tie a rest (use note ties only).\nContext: ...{context}...")
+
         notes_with_durations.append(parsed)
+
+        # If current token ties forward, the next actual note token must repeat this pitch.
+        if tie_to_next:
+            tie_expected_midi = int(parsed[0])
+        else:
+            tie_expected_midi = None
         i += 1
+
+    if tie_expected_midi is not None:
+        context = " ".join([t for t in tokens if t != '|'])
+        return (None, f"Failed to parse ABC sequence '{original_str}'.\nError: Tie marker '-' at end without a following note of the same pitch.\nContext: ...{context}...")
     
     # Filter out measure markers if not requested
     if not include_markers:
@@ -758,7 +809,8 @@ def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, scale_
                             parts.append(f"REST:d{beats:.2f}:t{ticks}")
                         else:
                             # Regular note
-                            n, d = item
+                            n = item[0]
+                            d = item[1]
                             name = midi_to_note_name(n)
                             midi_num = int(n)
                             beats = float(d)
@@ -1154,15 +1206,49 @@ def append_exercise_to_session_track(
     elif ex[0] == 'sequence':
         seq = ex[1]
         if seq and isinstance(seq[0], tuple):
-            for midi_note, dur in seq:
+            # Support tied/legato notes encoded as (midi, dur, 'tie') for continuation.
+            active_note = None
+            active_ticks = 0
+            for item in seq:
+                midi_note = item[0]
+                dur = item[1]
+                tied_from_prev = (len(item) > 2 and item[2] == 'tie')
+
                 if midi_note == 'rest':
+                    # Flush any active note before a rest.
+                    if active_note is not None:
+                        track.append(Message('note_off', note=active_note, velocity=0, time=active_ticks))
+                        active_note = None
+                        active_ticks = 0
                     ticks = secs_to_ticks(dur)
                     track.append(mido.MetaMessage('track_name', name='', time=ticks))
+                    continue
+
+                midi_note_int = int(midi_note)
+                ticks = secs_to_ticks(dur)
+
+                if tied_from_prev:
+                    # Continuation: extend the currently active note.
+                    if active_note is None or active_note != midi_note_int:
+                        # Should not happen if parsing is correct; degrade gracefully.
+                        if active_note is not None:
+                            track.append(Message('note_off', note=active_note, velocity=0, time=active_ticks))
+                        track.append(Message('note_on', note=midi_note_int, velocity=velocity, time=0))
+                        active_note = midi_note_int
+                        active_ticks = ticks
+                    else:
+                        active_ticks += ticks
                 else:
-                    midi_note = int(midi_note)
-                    ticks = secs_to_ticks(dur)
-                    track.append(Message('note_on', note=midi_note, velocity=velocity, time=0))
-                    track.append(Message('note_off', note=midi_note, velocity=0, time=ticks))
+                    # Start a new note (flush previous one if any)
+                    if active_note is not None:
+                        track.append(Message('note_off', note=active_note, velocity=0, time=active_ticks))
+                    track.append(Message('note_on', note=midi_note_int, velocity=velocity, time=0))
+                    active_note = midi_note_int
+                    active_ticks = ticks
+
+            # Flush any remaining active note
+            if active_note is not None:
+                track.append(Message('note_off', note=active_note, velocity=0, time=active_ticks))
         else:
             notes = [int(n) for n in seq]
             for n in notes:
@@ -1418,6 +1504,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
     parser.add_argument('--output', '-o', help='Output filename (overrides config)')
+
     parser.add_argument('--dry-run', action='store_true', help='Do not render audio; only write a text log of generated exercises')
     parser.add_argument('--verbose', action='store_true', help='Also write a text log of generated exercises alongside the audio output')
     parser.add_argument('--text-file', help='Explicit path for the text log (overrides default)')
@@ -1430,130 +1517,12 @@ def main():
     fname_template = outcfg.get('filename', 'Intonation_{scale}_{date}.mp3')
     fmt = outcfg.get('format', 'mp3')
     normalize_lufs = outcfg.get('normalize_lufs', -16)
-    
+
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     scale_name = cfg.get('scale', {}).get('name', 'scale')
     out_name = args.output or fname_template.format(scale=scale_name.replace(' ', '_'), date=timestamp)
 
-    # Define helper functions early so they can be used throughout
-    def midi_to_note_name(midi: int) -> str:
-        # Convert MIDI number back to a note name like C4, Db3
-        octave = (midi // 12) - 1
-        pc = midi % 12
-        names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        name = names[pc]
-        return f"{name}{octave}"
-
-    def write_text_log(path: str, exercises_list, ticks_per_beat: int = None, time_signature: str = '4/4'):
-        # Parse time signature to get beats per measure
-        try:
-            beats_per_measure = int(time_signature.split('/')[0])
-        except:
-            beats_per_measure = 4  # Default to 4/4
-        
-        with open(path, 'w', encoding='utf8') as f:
-            f.write(f"Intonation Trainer Log\n")
-            f.write(f"Scale: {scale_name}\n")
-            f.write(f"Time Signature: {time_signature}\n")
-            f.write(f"Generated: {len(exercises_list)} exercises (with repetitions)\n\n")
-            for i, ex in enumerate(exercises_list, start=1):
-                if ex[0] == 'interval':
-                    a, b = ex[1], ex[2]
-                    f.write(f"{i:04d}: INTERVAL  {midi_to_note_name(a)} ({a}) -> {midi_to_note_name(b)} ({b})\n")
-                elif ex[0] == 'triad':
-                    notes = ex[1]
-                    names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
-                    f.write(f"{i:04d}: TRIAD     {names}\n")
-                elif ex[0] == 'chord':
-                    notes = ex[1]
-                    names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes])
-                    f.write(f"{i:04d}: CHORD    {names}\n")
-                elif ex[0] == 'sequence':
-                    notes_with_dur = ex[1]
-                    # Handle both old format (just MIDI numbers) and new format (with durations)
-                    if notes_with_dur and isinstance(notes_with_dur[0], tuple):
-                        # New format: list of (midi, duration) tuples or ('rest', duration) for rests
-                        # Include duration in beats and ticks
-                        if ticks_per_beat is None:
-                            ticks_per_beat = 480
-                        parts = []
-                        cumulative_beats = 0.0
-                        measure_num = 0  # Start at 0 so first note triggers M1
-                        for item in notes_with_dur:
-                            # Check if we're at the start of a new measure
-                            current_measure = int(cumulative_beats // beats_per_measure) + 1
-                            if current_measure > measure_num:
-                                parts.append(f"|M{current_measure}|")
-                                measure_num = current_measure
-                            
-                            if item[0] == 'rest':
-                                # Rest notation
-                                beats = float(item[1])
-                                ticks = int(beats * ticks_per_beat)
-                                parts.append(f"REST:d{beats:.2f}:t{ticks}")
-                                cumulative_beats += beats
-                            else:
-                                # Regular note
-                                n, d = item
-                                name = midi_to_note_name(n)
-                                midi_num = int(n)
-                                beats = float(d)
-                                ticks = int(beats * ticks_per_beat)
-                                parts.append(f"{name}({midi_num}):d{beats:.2f}:t{ticks}")
-                                cumulative_beats += beats
-                        names = ' '.join(parts)
-                    else:
-                        # Old format: just MIDI numbers
-                        names = ' '.join([f"{midi_to_note_name(n)}({n})" for n in notes_with_dur])
-                    f.write(f"{i:04d}: SEQUENCE  {names}\n")
-                else:
-                    f.write(f"{i:04d}: UNKNOWN   {ex}\n")
-        print(f'Wrote text log to {path}')
-
-    def parse_text_log(path: str):
-        """Parse exercises from a text log file generated by write_text_log."""
-        exercises = []
-        try:
-            with open(path, 'r', encoding='utf8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or ':' not in line:
-                        continue
-                    # Format: "0001: INTERVAL  C#3 (49) -> A#2 (46)"
-                    #         "0001: TRIAD     A3(57) C#4(61) E4(64)"
-                    parts = line.split(':', 1)
-                    if len(parts) < 2:
-                        continue
-                    content = parts[1].strip()
-                    if content.startswith('INTERVAL'):
-                        # Parse: "INTERVAL  C#3 (49) -> A#2 (46)"
-                        rest = content[len('INTERVAL'):].strip()
-                        # Extract MIDI numbers in parentheses
-                        import re
-                        matches = re.findall(r'\((\d+)\)', rest)
-                        if len(matches) >= 2:
-                            a, b = int(matches[0]), int(matches[1])
-                            exercises.append(('interval', a, b))
-                    elif content.startswith('TRIAD'):
-                        # Parse: "TRIAD     A3(57) C#4(61) E4(64)"
-                        rest = content[len('TRIAD'):].strip()
-                        import re
-                        matches = re.findall(r'\((\d+)\)', rest)
-                        if len(matches) >= 3:
-                            notes = tuple(int(m) for m in matches)
-                            exercises.append(('triad', notes))
-                    elif content.startswith('CHORD'):
-                        # Parse: "CHORD    A3(57) C#4(61) E4(64)"
-                        rest = content[len('CHORD'):].strip()
-                        import re
-                        matches = re.findall(r'\((\d+)\)', rest)
-                        if len(matches) >= 3:
-                            notes = tuple(int(m) for m in matches)
-                            exercises.append(('chord', notes))
-        except Exception as e:
-            print(f'Error parsing text log {path}: {e}')
-            return []
-        return exercises
+    # Use module-level helpers (midi_to_note_name / write_text_log / parse_text_log).
 
     # Get max_duration from config, then override with CLI if provided
     config_max_duration = cfg.get('max_duration', 600)
@@ -1804,7 +1773,7 @@ def main():
     # If dry run requested, write only the text log and exit (no audio rendering)
     if args.dry_run:
         text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
-        write_text_log(text_path, final_list, time_signature=time_signature)
+        write_text_log(text_path, final_list, scale_name=scale_name, time_signature=time_signature)
         shutil.rmtree(tmpdir)
         return
 
@@ -1872,7 +1841,7 @@ def main():
         # No audio rendering: write the text log using the actual MIDI ticks per beat
         text_path = args.text_file or (os.path.splitext(out_name)[0] + '.txt')
         ticks_val = session_mid.ticks_per_beat if 'session_mid' in locals() else 480
-        write_text_log(text_path, final_list, ticks_per_beat=ticks_val, time_signature=time_signature)
+        write_text_log(text_path, final_list, ticks_per_beat=ticks_val, scale_name=scale_name, time_signature=time_signature)
         return
     except Exception as e:
         print(f'Warning: failed to write text log: {e}')

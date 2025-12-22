@@ -1,0 +1,51 @@
+# Beispiel-Konfiguration: Sequenzen mit Legato (Tie) über Taktgrenzen
+#
+# Notation: Ein "-" am Ende einer Note bindet (tie/legato) zur nächsten Note
+# derselben Tonhöhe. Die Fortsetzungs-Note wird NICHT erneut angeschlagen,
+# sondern verlängert die vorherige Note – auch über Taktstriche (|) hinweg.
+#
+# Beispiele:
+#   "C4- C4"   -> C4 wird insgesamt 2 Beats gehalten (bei unit_length: 1.0)
+#   "| C4- | C4 |" -> C4 über die Taktgrenze hinweg gehalten
+#
+# Einschränkungen:
+# - Die gebundene Fortsetzung MUSS dieselbe Tonhöhe wiederholen.
+# - Pausen (z/Z/x) können nicht gebunden werden.
+
+output:
+  filename: "Legato_Sequences_{date}.mid"
+  format: mid
+  normalize_lufs: -16
+
+sequences:
+  signature: "4/4"
+  unit_length: 1.0
+  validate_time_signature: true
+  notes:
+    # 1) Legato innerhalb eines Taktes: C wird über 2 Beats gehalten
+    - "| C4- C4 D4 E4 |"  # Beats: 1 + 1 + 1 + 1 = 4
+
+    # 2) Legato über Taktgrenze: C hält in Takt 1 an und geht in Takt 2 weiter
+    - "| D4 E4 F4 C4- | C4 G4 A4 B4 |"  # C4 am Anfang von Takt 2 ist Fortsetzung (insg. 2 Beats)
+
+    # 3) Legato mit expliziten Dauern: Gesamtdauer = 1.5 Beats
+    - "| C4:1.0- C4:0.5 D4 E4 z:1.5 |"
+
+    # 4) Legato + Inline-Taktwechsel (3/4 für den nächsten Takt)
+    - "|3 C4- C4 D4 | E4 F4 G4 |"
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 2.0
+  intro_beats: 4
+  intro_bpm: 120
+
+repetitions_per_exercise: 1
+random_seed: null
+max_duration: 60
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
