@@ -3,6 +3,8 @@
 ## Skalen-Mapping
 Wenn in der Konfiguration unter `sequences` ein `scale` angegeben ist, werden die Noten automatisch gemäß Mapping aus `config/scales.yaml` mit Vorzeichen (#/b) versehen.
 
+Hinweis zu Namen: Für das Mapping werden sowohl die Keys aus `config/scales.yaml` (z.B. `Dm`, `Gmajor`, `Fminor`) als auch gängige Alias-Schreibweisen akzeptiert (z.B. `Dminor` → `Dm`, `Aminor` → `Am`, `Gmaj` → `Gmajor`).
+
 Beispiel `config/scales.yaml`:
 ```yaml
 Gmajor:

@@ -56,6 +56,24 @@ class TestScalesParsing(unittest.TestCase):
         self.assertEqual(seqs[1][1][2][0], midi_d)
         self.assertEqual(seqs[1][1][3][0], midi_e)
 
+    def test_dminor_alias_default_and_override(self):
+        # D minor has Bb in the key signature: B should become Bb unless overridden.
+        dminor_cfg = {
+            'signature': '4/4',
+            'scale': 'Dminor',
+            'unit_length': 1.0,
+            'notes': [
+                "B3",     # should become Bb3
+                "B!3"     # override: natural B3
+            ]
+        }
+        seqs = trainer.parse_sequences_from_config(dminor_cfg)
+        midi_bb3 = trainer.note_name_to_midi('Bb3')
+        midi_b3 = trainer.note_name_to_midi('B3')
+
+        self.assertEqual(seqs[0][1][0][0], midi_bb3)
+        self.assertEqual(seqs[1][1][0][0], midi_b3)
+
 if __name__ == "__main__":
     unittest.main()#!/usr/bin/env python3
 import unittest
