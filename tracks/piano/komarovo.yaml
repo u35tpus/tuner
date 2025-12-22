@@ -14,7 +14,8 @@ sequences:
   combine_sequences_to_one: true
   validate_time_signature: true
   notes:
-    - "| z3 A3:0.5 A3:0.5 | A3 B3 B3 A3:0.5 C4:0.5 | z B3  B3 A3:0.5 G3:0.5 | "  # На недельку до второго
+    - "| z3 A3:0.5 A3:0.5 | A3 B3 B3 A3:0.5 C4:0.5- | C4 B3  "  # На недельку до второго
+    - " B3 A3:0.5 G3:0.5- | G3 G3 F3 G3:0.5 B3:0.5- | B3 A3 z z |" # я уеду в Комарово
 
 
 
@@ -26,7 +27,7 @@ timing:
   intro_bpm: 120
 
 # How many times each sequence should be repeated consecutively
-repetitions_per_exercise: 5
+repetitions_per_exercise: 1
 random_seed: null
 
 # Session duration limit in seconds (default 600 = 10 minutes)
