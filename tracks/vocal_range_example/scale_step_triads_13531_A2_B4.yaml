@@ -1,11 +1,11 @@
 output:
-  filename: "VocalRange_ScaleStepTriads_13531_A2_F4_{date}.mid"
+  filename: "VocalRange_ScaleStepTriads_13531_A2_B4_{date}.mid"
   format: mid
   normalize_lufs: -16
 
 vocal_range:
   lowest_note: A2
-  highest_note: F4
+  highest_note: B4
   mode: scale_step_triads_13531
 
 # Pro Halbton-Schritt (Grundton) wird erzeugt:
