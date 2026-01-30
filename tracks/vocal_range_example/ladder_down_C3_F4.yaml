@@ -1,0 +1,25 @@
+output:
+  filename: "VocalRange_ladder_down_C3_F4_{date}.mid"
+  format: mid
+  normalize_lufs: -16
+
+vocal_range:
+  lowest_note: C3
+  highest_note: F4
+  mode: ladder_down
+
+repetitions_per_exercise: 5
+
+max_duration: 600
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 0.6
+  pause_between_blocks: 1.0
+  intro_beats: 4
+  intro_bpm: 120
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90

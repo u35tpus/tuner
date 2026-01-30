@@ -1,5 +1,9 @@
 .PHONY: help test test-verbose test-integration test-unit venv install clean run run-demo coverage
 
+# Prefer project virtualenv when it exists.
+PYTHON := $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
+PIP := $(shell if [ -x .venv/bin/pip ]; then echo .venv/bin/pip; else echo pip3; fi)
+
 help:
 	@echo "Intonation Trainer - Makefile targets"
 	@echo ""
@@ -28,32 +32,32 @@ venv:
 	@echo "Virtual environment created. Activate with: . .venv/bin/activate"
 
 install:
-	pip install -r requirements.txt
+	$(PIP) install -r requirements.txt
 	@echo "Dependencies installed."
 
 test:
-	python3 -m unittest discover -s test -p "test_*.py" -q
+	$(PYTHON) -m unittest discover -s test -p "test_*.py" -q
 
 test-verbose:
-	python3 -m unittest discover -s test -p "test_*.py" -v
+	$(PYTHON) -m unittest discover -s test -p "test_*.py" -v
 
 test-unit:
-	python3 -m unittest test_intonation_trainer test_abc_notation test_coverage -v
+	$(PYTHON) -m unittest test_intonation_trainer test_abc_notation test_coverage -v
 
 test-integration:
-	python3 -m unittest test_integration test_intonation_trainer.TestIntegration test_intonation_trainer.TestSessionMIDIGeneration -v
+	$(PYTHON) -m unittest test_integration test_intonation_trainer.TestIntegration test_intonation_trainer.TestSessionMIDIGeneration -v
 
 coverage:
-	coverage run -m unittest discover -s test -p "test_*.py" -q
-	coverage report -m
-	coverage html
+	$(PYTHON) -m coverage run -m unittest discover -s test -p "test_*.py" -q
+	$(PYTHON) -m coverage report -m
+	$(PYTHON) -m coverage html
 	@echo "Coverage report generated in htmlcov/index.html"
 
 run:
-	python3 intonation_trainer.py config_template.yaml --verbose
+	$(PYTHON) intonation_trainer.py config_template.yaml --verbose
 
 run-demo:
-	python3 intonation_trainer.py config_template.yaml --dry-run --max-duration 180 --text-file demo_exercises.txt
+	$(PYTHON) intonation_trainer.py config_template.yaml --dry-run --max-duration 180 --text-file demo_exercises.txt
 
 clean:
 	rm -f *.mp3 *.mid .log *.wav *.m4a

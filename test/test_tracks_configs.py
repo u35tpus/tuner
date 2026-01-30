@@ -1,9 +1,8 @@
 import unittest
 import os
-import glob
 import subprocess
 import tempfile
-import shutil
+import sys
 
 class TestTracksConfigs(unittest.TestCase):
     def test_all_tracks_configs(self):
@@ -38,7 +37,7 @@ class TestTracksConfigs(unittest.TestCase):
                     
                     # Construct command: python3 intonation_trainer.py <config> --output <temp_output>
                     cmd = [
-                        'python3', 
+                        sys.executable,
                         'intonation_trainer.py', 
                         config_file, 
                         '--output', 

@@ -82,6 +82,8 @@ brew install fluidsynth ffmpeg
 python3 intonation_trainer.py config_template.yaml
 ```
 
+Tipp: Wenn `.venv/` existiert, startet sich `intonation_trainer.py` bei fehlenden Dependencies automatisch erneut mit `.venv/bin/python` (auch wenn du versehentlich `python3 ...` ohne aktiviertes venv benutzt).
+
 Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfiguration (z. B. `Intonation_session_20251206_013323.mid`).
 
 **Wichtige Hinweis zu Lautstärke/Normalisierung**
@@ -363,6 +365,36 @@ repetitions_per_exercise: 5
 
 Beispiel-Datei im Repo:
 - tracks/vocal_range_example/scale_step_minor_triads_13531_A2_F4.yaml
+
+## Modus: Whole-Tone Ladder abwärts (`ladder_down`)
+
+Dieser Modus erzeugt eine deterministische Übung, die wie eine „abwärts gerichtete Leiter“ funktioniert:
+
+- Start bei `lowest_note` (z. B. `A2`)
+- dann **5 Schritte abwärts**, wobei **jeder Schritt 1 Ganzton** (= 2 Halbtöne) ist
+- danach ein kurzer Block-Pause (`pause_between_blocks`)
+- dann nächster Startton **1 Halbton höher** (z. B. `A#2` / `Bb2`) und wiederholen
+
+Wichtig: `lowest_note` / `highest_note` begrenzen in diesem Modus **nur die Starttöne**. Die abwärts gespielten Noten dürfen dabei unter `lowest_note` fallen.
+
+**Konfigurationsbeispiel:**
+```yaml
+vocal_range:
+  lowest_note: A2
+  highest_note: B4
+  mode: ladder_down
+
+# Wiederholt jede Leiter (pro Startton) n-mal, bevor zum nächsten Startton gewechselt wird
+repetitions_per_exercise: 5
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 0.6
+  pause_between_blocks: 1.0
+```
+
+Beispiel-Datei im Repo:
+- tracks/vocal_range_example/ladder_down_A2_B4.yaml
 
 ## Takt-Markierungen in Verbose-Ausgabe
 

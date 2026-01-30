@@ -70,11 +70,57 @@ import math
 import random
 from datetime import datetime
 
+
+def _maybe_reexec_with_project_venv(
+    *,
+    env=None,
+    argv=None,
+    python_executable: str | None = None,
+    exists=None,
+    execv=None,
+    print_fn=None,
+) -> bool:
+    """Re-exec this script with the project venv Python if available.
+
+    This is primarily a convenience for users who run `python3 intonation_trainer.py ...`
+    without activating `.venv`.
+
+    Returns True if a re-exec was attempted (normally does not return).
+    """
+    if env is None:
+        env = os.environ
+    if argv is None:
+        argv = sys.argv
+    if python_executable is None:
+        python_executable = sys.executable
+    if exists is None:
+        exists = os.path.exists
+    if execv is None:
+        execv = os.execv
+    if print_fn is None:
+        print_fn = print
+
+    if env.get('INTONATION_TRAINER_REEXECED') == '1':
+        return False
+
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    venv_python = os.path.join(project_root, '.venv', 'bin', 'python')
+    if not exists(venv_python):
+        return False
+    if os.path.abspath(str(python_executable)) == os.path.abspath(venv_python):
+        return False
+
+    env['INTONATION_TRAINER_REEXECED'] = '1'
+    print_fn(f"Re-running with project venv: {venv_python}")
+    execv(venv_python, [venv_python] + list(argv))
+    return True
+
 try:
     import yaml
-except Exception:
-    print("Missing dependency 'pyyaml'. Install with: pip install pyyaml")
-    raise
+except Exception:  # pragma: no cover
+    _maybe_reexec_with_project_venv()  # pragma: no cover
+    print("Missing dependency 'pyyaml'. Install with: pip install pyyaml")  # pragma: no cover
+    raise  # pragma: no cover
 
 # Audio rendering has been removed; this tool produces MIDI files only.
 
@@ -82,9 +128,10 @@ except Exception:
 try:
     import mido
     from mido import Message, MidiFile, MidiTrack, bpm2tempo
-except Exception:
-    print("Missing dependency 'mido'. Install with: pip install mido")
-    raise
+except Exception:  # pragma: no cover
+    _maybe_reexec_with_project_venv()  # pragma: no cover
+    print("Missing dependency 'mido'. Install with: pip install mido")  # pragma: no cover
+    raise  # pragma: no cover
 
 import numpy as np
 import wave
@@ -986,6 +1033,12 @@ def build_final_list(cfg: dict, args) -> tuple:
                     highest,
                     repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
                 )
+            elif vocal_mode == 'ladder_down':
+                exercises = generate_vocal_range_ladder_down(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
             else:
                 exercises = generate_vocal_range_note_chains(
                     lowest,
@@ -1037,7 +1090,13 @@ def build_final_list(cfg: dict, args) -> tuple:
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
     # vocal_range modes that are step-based should be deterministic (no shuffle).
     vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
-    if not sequences_cfg and vocal_mode not in ('scale_step_triads', 'scale_step_triads_13531', 'scale_step_minor_triads_13531'):
+    step_based_vocal_modes = (
+        'scale_step_triads',
+        'scale_step_triads_13531',
+        'scale_step_minor_triads_13531',
+        'ladder_down',
+    )
+    if not sequences_cfg and vocal_mode not in step_based_vocal_modes:
         random.shuffle(exercises)
     # timing
     note_duration = cfg.get('timing', {}).get('note_duration', 1.8)
@@ -1058,7 +1117,8 @@ def build_final_list(cfg: dict, args) -> tuple:
     max_unique_exercises = len(exercises) if len(exercises) > 0 else 1
 
     if repetitions_per_exercise_cfg > 1:
-        actual_reps = repetitions_per_exercise_cfg
+        # For step-based vocal_range modes, repetitions are handled by the generator.
+        actual_reps = 1 if vocal_mode in step_based_vocal_modes else repetitions_per_exercise_cfg
     elif exercises_count is not None and exercises_count > 0:
         actual_reps = 1
         max_unique_exercises = exercises_count
@@ -1087,15 +1147,9 @@ def build_final_list(cfg: dict, args) -> tuple:
                     final_list.append(ex)
         else:
             # Standardverhalten für Skalen/Intervalle/Triaden
-            vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
-            if vocal_mode == 'scale_step_triads':
+            for ex in exercises:
                 for _ in range(actual_reps):
-                    for ex in exercises:
-                        final_list.append(ex)
-            else:
-                for ex in exercises:
-                    for _ in range(actual_reps):
-                        final_list.append(ex)
+                    final_list.append(ex)
             if exercises_count is not None and len(final_list) > exercises_count:
                 final_list = final_list[:exercises_count]
 
@@ -1137,6 +1191,44 @@ def generate_vocal_range_note_chains(
             note = rng.choice(candidates)
             chain.append(note)
         exercises.append(('sequence', [(n, 1.0) for n in chain]))
+    return exercises
+
+
+def generate_vocal_range_ladder_down(
+    lowest: int,
+    highest: int,
+    *,
+    repetitions_per_step: int = 1,
+    steps_down: int = 5,
+    step_semitones: int = 2,
+    start_step_semitones: int = 1,
+):
+    """Generate a deterministic downward ladder exercise (whole-tone steps).
+
+    For each start note beginning at lowest and moving up by start_step_semitones (default: 2):
+      - play a sequence: start, then steps_down steps downward,
+        each step is step_semitones semitones (default: 2 = whole tone)
+
+    Example for A2 with defaults: A2, G2, F2, Eb2, Db2, B1.
+
+    Notes may go below lowest_note; lowest/highest constrain only the start notes.
+    """
+    exercises = []
+    low = int(lowest)
+    high = int(highest)
+    reps = max(1, int(repetitions_per_step))
+    steps = max(1, int(steps_down))
+    step = int(step_semitones) if int(step_semitones) != 0 else 1
+    start_step = int(start_step_semitones) if int(start_step_semitones) != 0 else 1
+
+    for start in range(low, high + 1, start_step):
+        seq = [start - i * step for i in range(steps + 1)]
+        # Clamp to MIDI note range.
+        seq = [n for n in seq if 0 <= int(n) <= 127]
+        if not seq:
+            continue
+        for _ in range(reps):
+            exercises.append(('sequence', seq))
     return exercises
 
 
@@ -1657,6 +1749,12 @@ def main():
                     highest,
                     repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
                 )
+            elif vocal_mode == 'ladder_down':
+                exercises = generate_vocal_range_ladder_down(
+                    lowest,
+                    highest,
+                    repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                )
             else:
                 exercises = generate_vocal_range_note_chains(
                     lowest,
@@ -1713,7 +1811,13 @@ def main():
 
     # Nur mischen, wenn keine sequences verwendet werden (Skalen/Intervalle/Triaden)
     vocal_mode = (cfg.get('vocal_range', {}) or {}).get('mode', None)
-    if not sequences_cfg and vocal_mode not in ('scale_step_triads', 'scale_step_triads_13531', 'scale_step_minor_triads_13531'):
+    step_based_vocal_modes = (
+        'scale_step_triads',
+        'scale_step_triads_13531',
+        'scale_step_minor_triads_13531',
+        'ladder_down',
+    )
+    if not sequences_cfg and vocal_mode not in step_based_vocal_modes:
         random.shuffle(exercises)
     final_list = []
     # Calculate actual repetitions based on max_duration target
@@ -1798,7 +1902,7 @@ def main():
             total_time = 0.0
             while True:
                 for ex_idx, ex in enumerate(exercises):
-                    reps_for_this_ex = 1 if vocal_mode in ('scale_step_triads', 'scale_step_triads_13531', 'scale_step_minor_triads_13531') else actual_reps
+                    reps_for_this_ex = 1 if vocal_mode in step_based_vocal_modes else actual_reps
                     for _ in range(reps_for_this_ex):
                         if exercises_count is not None and len(final_list) >= exercises_count:
                             break
