@@ -51,7 +51,7 @@ timing:
   intro_bpm: 120
 
 # How many times each sequence should be repeated consecutively
-repetitions_per_exercise: 1
+repetitions_per_exercise: 5
 random_seed: null
 
 # Session duration limit in seconds (default 600 = 10 minutes)
