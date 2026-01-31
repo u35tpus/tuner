@@ -192,6 +192,32 @@ class TestMainEndToEnd(unittest.TestCase):
 
             self.assertTrue(os.path.exists(out_txt))
 
+    def test_main_vocal_range_ladder_down_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = os.path.join(tmpdir, 'cfg.yaml')
+            out_txt = os.path.join(tmpdir, 'out.txt')
+            cfg = {
+                'output': {'filename': 'Vocal_{date}.mp3'},
+                'vocal_range': {'lowest_note': 'A2', 'highest_note': 'B2', 'mode': 'ladder_down'},
+                'timing': {'note_duration': 0.1, 'pause_between_reps': 0.0},
+                'repetitions_per_exercise': 1,
+                'max_duration': 1,
+            }
+            self._write_yaml(cfg_path, cfg)
+
+            with ArgvContext([
+                'intonation_trainer.py',
+                cfg_path,
+                '--dry-run',
+                '--text-file',
+                out_txt,
+                '--max-duration',
+                '1',
+            ]):
+                trainer.main()
+
+            self.assertTrue(os.path.exists(out_txt))
+
     def test_main_from_text_empty_exits_cleanly(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg_path = os.path.join(tmpdir, 'cfg.yaml')
