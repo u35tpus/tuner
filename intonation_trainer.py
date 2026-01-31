@@ -69,13 +69,14 @@ import subprocess
 import math
 import random
 from datetime import datetime
+from typing import Optional
 
 
 def _maybe_reexec_with_project_venv(
     *,
     env=None,
     argv=None,
-    python_executable: str | None = None,
+    python_executable: Optional[str] = None,
     exists=None,
     execv=None,
     print_fn=None,
