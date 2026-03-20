@@ -114,6 +114,39 @@ class TestVocalRangeLadderDown(unittest.TestCase):
         self.assertEqual(len(final_list), 3)
         self.assertGreaterEqual(estimated_duration, 0.0)
 
+    def test_build_final_list_ladder_down_respects_configured_steps(self):
+        cfg = {
+            'output': {'filename': 'Vocal_{date}.mp3'},
+            'vocal_range': {
+                'lowest_note': 'A2',
+                'highest_note': 'A2',
+                'mode': 'ladder_down',
+                'steps_down': 3,
+                'step_semitones': 2,
+                'start_step_semitones': 1,
+            },
+            'timing': {'note_duration': 0.1, 'pause_between_reps': 0.0},
+            'repetitions_per_exercise': 1,
+            'max_duration': 10,
+        }
+
+        class Args:
+            max_duration = 10
+            from_text = None
+            output = None
+
+        final_list, _, _, _ = trainer.build_final_list(cfg, Args())
+        self.assertGreaterEqual(len(final_list), 1)
+        self.assertEqual(
+            final_list[0][1],
+            [
+                trainer.note_name_to_midi('A2'),
+                trainer.note_name_to_midi('G2'),
+                trainer.note_name_to_midi('F2'),
+                trainer.note_name_to_midi('Eb2'),
+            ],
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

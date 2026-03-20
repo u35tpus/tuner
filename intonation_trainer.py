@@ -1039,6 +1039,9 @@ def build_final_list(cfg: dict, args) -> tuple:
                     lowest,
                     highest,
                     repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                    steps_down=vocal.get('steps_down', 5),
+                    step_semitones=vocal.get('step_semitones', 2),
+                    start_step_semitones=vocal.get('start_step_semitones', 1),
                 )
             else:
                 exercises = generate_vocal_range_note_chains(
@@ -1755,6 +1758,9 @@ def main():
                     lowest,
                     highest,
                     repetitions_per_step=cfg.get('repetitions_per_exercise', 1),
+                    steps_down=vocal.get('steps_down', 5),
+                    step_semitones=vocal.get('step_semitones', 2),
+                    start_step_semitones=vocal.get('start_step_semitones', 1),
                 )
             else:
                 exercises = generate_vocal_range_note_chains(
