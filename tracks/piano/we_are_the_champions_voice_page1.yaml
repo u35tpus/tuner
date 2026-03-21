@@ -1,0 +1,40 @@
+output:
+  filename: "WeAreTheChampions_voice_page1_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+# Manual melody-only transcription from the provided score image (page 1).
+# Piano accompaniment and chord voicings are intentionally omitted.
+sequences:
+  signature: "6/8"
+  unit_length: 1.0
+  scale: Dminor
+  combine_sequences_to_one: true
+  validate_time_signature: false
+  notes:
+    - "| z:1.5 A3:0.5 C4:0.5 D4:0.5 | D4:1.5 z:1.5 | z:1.5 A3:0.5 C4:0.5 D4:0.5 | D4:1.5 z:1.5 |"  # I've paid my dues, time after time
+    - "| z:1.5 A3:0.5 C4:0.5 D4:0.5 | D4:0.5 D4:0.5 z:0.5 z:1.5 | z:1.0 A3:0.25 A3:0.25 E4:0.5 D4:0.5 C4:0.25 D4:0.25 | D4:1.5 z:1.5 |"  # I've done my sentence, but committed no crime
+    - "| z:1.5 C4:0.5 E4:0.5 F4:0.5 | F4:1.5 z:1.5 | z:1.5 C4:0.5 E4:0.5 F4:0.5 | F4:1.5 z:1.5 |"  # And bad mistakes, I've made a few
+    - "| z:1.5 C4:0.5 E4:0.5 E4:0.25 F4:0.25 | F4:0.5 F4:0.5 F4:0.5 G4:0.5 G4:0.5 G4:0.55 | A4:1.5 B!4:0.5 B!4:0.5 B!4:0.5 | C5:3.0 |"  # I've had my share of sand kicked in my face, but I've come through
+    - "| G4:2.0 F#4:0.5 G4:0.5 | F#4:1.0 D4:1.0 z:0.5 B!3:0.5 | E4:1.0 B!3:2.0 | "  # We are the champions, my friends
+    - "| z:2.5 D4:0.5 | G4:2.0 A4:0.5 B!4:0.5 | D5:1.0 B!4:1.0 E4:0.5 F#4:0.5 | E4:3.0 |"  # and we'll keep on fighting to the end
+    - "| E4:1.5 D4:1.0 E4:0.5 | D4:1.5 C4:1.0 z:0.5 | C5:1.5 B!4:1.0 C5:0.5 | B!4:1.5 A4:1.0 z:0.5 |"  # We are the champions, we are the champions
+    - "| B!4:1.5 G4:1.0 C5:0.5 | B!4:1.5 G4:1.0 C5:0.5 | B4:1.5 G4:1.0 C5:0.5 | B4:1.5 G4:1.5 | z:1.5 z:0.5 F4:0.5 D4:0.5 | G4:1.5 z:1.5 |"  # No time for losers, 'cause we are the champions of the world, we are the
+
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 0.5
+  intro_beats: 4
+  intro_bpm: 63
+
+repetitions_per_exercise: 1
+random_seed: null
+
+max_duration: 300
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90

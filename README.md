@@ -143,6 +143,23 @@ Das erzeugt standardmäßig eine MIDI-Datei nach `output.filename` in der Konfig
     - `C4/4` — Viertel der Länge (Sechzehntelnote)
     - `C4:1.5` — explizite Dauer in Beats (z.B. punktierte Viertelnote)
 
+  - **Vorzeichen aus der Skala gezielt aufheben (`!`)**:
+    - Wenn `sequences.scale` gesetzt ist, werden Vorzeichen aus der Tonart automatisch auf passende Noten angewendet.
+    - Mit `!` kannst du das Vorzeichen der Tonart **für genau diese eine Note** aufheben, sodass sie **natürlich** gespielt wird (weder `#` noch `b`).
+    - Beispiel in `Gmajor`: `F4` wird automatisch zu `F#4`, aber `F!4` bleibt `F4`.
+    - Beispiel in `Dminor`: `B3` wird automatisch zu `Bb3`, aber `B!3` bleibt `B3`.
+
+    **Beispiel:**
+    ```yaml
+    sequences:
+      signature: "4/4"
+      unit_length: 1.0
+      scale: Dminor
+      notes:
+        - "| A4 B4 A4 |"     # B4 wird als Bb4 interpretiert
+        - "| A4 B!4 A4 |"    # B!4 hebt das b der Tonart auf -> natürliches B4
+    ```
+
   - **Legato / Bindebogen (Tie) in Sequenzen**:
     - Ein `-` am Ende einer Note bindet zur **nächsten Note derselben Tonhöhe**.
     - Die Fortsetzungs-Note wird **nicht erneut angeschlagen**, sondern verlängert die vorherige Note (auch über `|` hinweg).
