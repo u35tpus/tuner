@@ -1,0 +1,36 @@
+output:
+  filename: "fair_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+# Manual melody-only transcription from the provided score image (page 1).
+# Piano accompaniment and chord voicings are intentionally omitted.
+sequences:
+  signature: "3/4"
+  unit_length: 1.0
+  scale: Eminor
+  combine_sequences_to_one: true
+  validate_time_signature: false
+  notes:
+    - "| E3:2.0  E3:1.0| B3:1.0 B3:1.0 B3:1.0 | F3:1.5 G3:0.5 F3:1.0 | E3:3.0 |"  #  Are you going to Scarborough Fair
+    - "| z:1.0 B3:1.0 D4:1.0 | E4:2.0 D4:1.0 | B3:1.0 C#4:1.0 A3:1.0 | B3:3.0 |"   # Parsley, sage, rosemary and thyme
+    - "| z:2.0 e4:1.0 | e4:2.0 e4:1.0 | d4:2.0 b3:1.0 | b3:1.5 a3:0.5 G3:1.0 | F3:1.0 d3:2.0 | |"  # Remember me to one who lives there
+    - "| E3:2.0 B3:1.0 | a3:2.0 g3:1.0 | f3:1.5 e3:0.5 d3:1.0 | e3:3.0 |"  # She once was a true love of mine
+    
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 0.5
+  intro_beats: 4
+  intro_bpm: 63
+
+repetitions_per_exercise: 1
+random_seed: null
+
+max_duration: 300
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
