@@ -74,6 +74,23 @@ class TestScalesParsing(unittest.TestCase):
         self.assertEqual(seqs[0][1][0][0], midi_bb3)
         self.assertEqual(seqs[1][1][0][0], midi_b3)
 
+    def test_emin_lowercase_notes_receive_scale_accidentals(self):
+        emin_cfg = {
+            'signature': '3/4',
+            'scale': 'Eminor',
+            'unit_length': 1.0,
+            'notes': [
+                "f3 e3 d3",
+                "f!3 e3 d3",
+            ]
+        }
+        seqs = trainer.parse_sequences_from_config(emin_cfg)
+        midi_fsharp3 = trainer.note_name_to_midi('F#3')
+        midi_f3 = trainer.note_name_to_midi('F3')
+
+        self.assertEqual(seqs[0][1][0][0], midi_fsharp3)
+        self.assertEqual(seqs[1][1][0][0], midi_f3)
+
 if __name__ == "__main__":
     unittest.main()#!/usr/bin/env python3
 import unittest

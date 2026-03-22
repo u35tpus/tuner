@@ -658,9 +658,9 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_mar
             override = 'b'
 
         # Extrahiere Buchstaben und Oktave
-        m = re.match(r'^([A-G])([#b]?)(\d)([#b]?)([\d.:/*]*)$', note_base)
+        m = re.match(r'^([A-G])([#b]?)(\d)([#b]?)([\d.:/*]*)$', note_base, re.IGNORECASE)
         if m:
-            letter = m.group(1)
+            letter = m.group(1).upper()
             accidental_before = m.group(2)
             octave = m.group(3)
             accidental_after = m.group(4)
