@@ -725,6 +725,30 @@ def parse_abc_sequence(abc_str, default_length=1.0, scale_name=None, include_mar
     return notes_with_durations
 
 
+def extract_inline_scale_prefix(seq_str, default_scale_name=None):
+    """Return (effective_scale_name, sequence_without_prefix).
+
+    Supports an optional leading scale override in sequence strings, e.g.
+    "Fminor| f2 e2 |" or "Bb major | B4 C5 |".
+    """
+    if not isinstance(seq_str, str):
+        return default_scale_name, seq_str
+
+    import re
+
+    match = re.match(
+        r'^\s*([A-Ga-g](?:(?:#|b)|(?:sharp|flat))?\s*(?:major|minor|maj|min|m))\s*\|(.*)$',
+        seq_str,
+        re.IGNORECASE,
+    )
+    if not match:
+        return default_scale_name, seq_str
+
+    inline_scale_name = match.group(1).strip()
+    remainder = match.group(2)
+    return inline_scale_name, f"|{remainder}"
+
+
 def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
     """Parse sequences from config and return list of exercises.
     
@@ -775,9 +799,10 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
         # Parse all sequences first (with markers for validation)
         parsed_sequences = []
         for seq_idx, seq_str in enumerate(notes_list):
-            notes_with_dur = parse_abc_sequence(seq_str, unit_length_val, scale_name, include_markers=True)
+            effective_scale_name, normalized_seq_str = extract_inline_scale_prefix(seq_str, scale_name)
+            notes_with_dur = parse_abc_sequence(normalized_seq_str, unit_length_val, effective_scale_name, include_markers=True)
             if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
-                parsed_sequences.append((seq_str, notes_with_dur))
+                parsed_sequences.append((normalized_seq_str, notes_with_dur))
             else:
                 error_msg = notes_with_dur[1] if notes_with_dur and len(notes_with_dur) == 2 else "Unknown error"
                 print_red(f'Warning: {error_msg}')
@@ -818,10 +843,11 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
     
     # Handle list format (simple strings, backward compatible)
     for seq_str in sequences_cfg:
+        effective_scale_name, normalized_seq_str = extract_inline_scale_prefix(seq_str, scale_name)
         # Detect format: if contains pipe (|), treat as ABC; else as comma-separated
-        if '|' in seq_str:
+        if '|' in normalized_seq_str:
             # ABC format (with optional durations)
-            notes_with_dur = parse_abc_sequence(seq_str, default_unit_length, scale_name)
+            notes_with_dur = parse_abc_sequence(normalized_seq_str, default_unit_length, effective_scale_name)
             if notes_with_dur and not (isinstance(notes_with_dur, tuple) and notes_with_dur[0] is None):
                 exercises.append(('sequence', notes_with_dur))
             else:
@@ -829,7 +855,7 @@ def parse_sequences_from_config(sequences_cfg, default_unit_length=1.0):
                 print_red(f'Warning: {error_msg}')
         else:
             # Comma-separated format (backward compatible, no durations)
-            note_names = [n.strip() for n in seq_str.split(',')]
+            note_names = [n.strip() for n in normalized_seq_str.split(',')]
             try:
                 notes = [(note_name_to_midi(n), default_unit_length) for n in note_names]
                 exercises.append(('sequence', notes))
