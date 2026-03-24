@@ -1,0 +1,32 @@
+output:
+  filename: "jesus_must_die_{date}.mp3"
+  format: mp3
+  normalize_lufs: -16
+
+sequences:
+  signature: "4/4"
+  unit_length: 1.0
+  scale: Dminor
+  combine_sequences_to_one: true
+  validate_time_signature: false
+  notes:
+    - "| D3:0.5 C#3:0.5 D3:0.5 | F3:2.0 z:0.5 d3:0.5 C#3:0.5 D3:0.5| B!3:0.5  A3:0.5 G#3:1.0  z:0.5 d3:0.5 C#3:0.5 D3:0.5 | f3:1.0 z:0.5 D3:0.5 C#3:0.5 D3:0.5 | b3!:0.5 A3:0.5  G#3:2.0 z:1.0 |"  #  Good Caiaphas, the council waits for you
+#    - "|z:2.5 D2:0.5 c#2:0.5 D#2:0.5 |  f2:2.0 z:0.5 f2:0.5 e2:0.5 f2:0.5 | " # Ah, gentlemen, you know why we're here
+    
+
+timing:
+  note_duration: 1.0
+  pause_between_reps: 1.0
+  pause_between_blocks: 0.5
+  intro_beats: 4
+  intro_bpm: 63
+
+repetitions_per_exercise: 1
+random_seed: null
+
+max_duration: 300
+
+sound:
+  method: soundfont
+  soundfont_path: "piano/SalamanderGrandPiano.sf2"
+  velocity: 90
