@@ -15,6 +15,10 @@ sequences:
     - "Fminor| f2:2.0 z:0.5 f2:0.5 e2:0.5 f2:0.5 | d!3:0.5 c3:0.5 b!2:1.5 f2:0.5 e!2:0.5 f2:0.5 | a2:2.0  z:0.5 f2:0.5 e!2:0.5 f2:0.5 | d!3:0.5 c3:0.5  b!2:2.0|  " # men, You know why we are here. We've not much time and quite a problem here
     - "Fminor| F3:0.25 E3:0.75 C3:0.5 C3:0.5  B2:0.5 A2:0.5 F2:0.5 F2:0.5 | A2:0.5 F2:0.5  F2:0.5 E2:0.5 F2:1.5 | " # Listen to that howling mob of block-heads in the street
     - "Fminor| F3:0.25 E3:0.75 C3:0.5 C3:0.5 B2:0.25 A2:0.75 F3:0.5 F3:0.25 A3:0.25-| A3:0.5 F3:0.5 F3:0.25 E3:0.5 F3:0.75 z:1.0|" # trick or two with lepers and the whole town's on its feet 
+    - "Fminor| z:3.0 F2:0.5 F2:0.5 |2 G#2:1.5 F!2:0.5 |" # he is danger
+    - "Cmajor| F2:1.5 z:2.5 |" # ous
+    
+
     
 
 timing:
